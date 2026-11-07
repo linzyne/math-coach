@@ -8,6 +8,7 @@ import LineChip from "./LineChip";
 import LineEditor from "./LineEditor";
 import HintPanel from "./HintPanel";
 import { emptyHintLog, hintTotal, type HintLog } from "@/lib/hintLog";
+import { useLang } from "@/lib/i18n";
 import { emptyInk, groupByLine, inkReducer } from "@/lib/ink/history";
 import { LINE_HEIGHT, TOP_MARGIN } from "@/lib/ink/geometry";
 import { useLineRecognition } from "@/lib/ink/useLineRecognition";
@@ -41,6 +42,7 @@ function usePersisted<T>(key: string, initial: T): [T, (v: T) => void, boolean] 
 type Props = { problemId: string; problemLatex: string; nextId: string | null };
 
 export default function SolveBoard({ problemId, problemLatex, nextId }: Props) {
+  const { t } = useLang();
   const [ink, dispatch] = useReducer(inkReducer, emptyInk);
   const [tool, setTool] = useState<Tool>("pen");
   const [allowTouch, setAllowTouch] = useState(false);
@@ -117,24 +119,24 @@ export default function SolveBoard({ problemId, problemLatex, nextId }: Props) {
       />
       {noKey && Object.keys(typed).length === 0 && (
         <div className="notice">
-          손글씨 인식(Mathpix) 키가 아직 없어요. <b>왼쪽 줄 번호를 누르면 키보드로 식을 입력</b>해서 검사를 테스트할 수 있어요.
+          {t.noMathpix}
         </div>
       )}
-      {verify.error && <div className="notice">{verify.error}</div>}
+      {verify.error && <div className="notice">{verify.error === "net" ? t.verifyNet : t.verifyFail}</div>}
       {verify.solved && (
         <div className="praise" role="status">
           <span>
-            정답이에요!{" "}
+            {t.correct}{" "}
             {(hintLog.solutionViews ?? 0) > 0
-              ? "풀이를 보고 끝까지 직접 써 봤어요. 다음엔 풀이 없이 도전해 봐요 💪"
+              ? t.praiseSolution
               : hintTotal(hintLog) === 0
-              ? "힌트 없이 스스로 끝까지 풀었어요 👏"
-              : `힌트 ${hintTotal(hintLog)}번으로 끝까지 풀었어요 👏`}
+              ? t.praiseNoHint
+              : t.praiseHints(hintTotal(hintLog))}
           </span>
           {nextId ? (
-            <Link href={`/solve/${nextId}`} className="primary">다음 문제 →</Link>
+            <Link href={`/solve/${nextId}`} className="primary">{t.next}</Link>
           ) : (
-            <Link href="/" className="primary">목록으로</Link>
+            <Link href="/" className="primary">{t.toList}</Link>
           )}
         </div>
       )}
@@ -151,7 +153,7 @@ export default function SolveBoard({ problemId, problemLatex, nextId }: Props) {
                   className={`gutter-cell ${has ? "has-ink" : ""} ${activeLine === i ? "active" : ""} ${focusLine === i ? "focus" : ""}`}
                   style={{ height: LINE_HEIGHT }}
                   onClick={() => setEditing(i)}
-                  aria-label={`${i + 1}번 줄 키보드로 입력${st === "wrong" ? " (다시 확인해 보세요)" : ""}`}
+                  aria-label={`${t.lineLabel(i + 1)}${st === "wrong" ? t.checkAgain : ""}`}
                 >
                   {i + 1}
                   {st === "wrong" && <span className="wrong-dot" aria-hidden />}
@@ -210,8 +212,7 @@ export default function SolveBoard({ problemId, problemLatex, nextId }: Props) {
       />
       {(hintTotal(hintLog) > 0 || (hintLog.questions ?? 0) > 0 || (hintLog.solutionViews ?? 0) > 0) && !verify.solved && (
         <div className="hint-count">
-          힌트 {hintTotal(hintLog)}회{(hintLog.questions ?? 0) > 0 ? ` · 질문 ${hintLog.questions}회` : ""}
-          {(hintLog.solutionViews ?? 0) > 0 ? " · 풀이 봄" : ""}
+          {t.hintCount(hintTotal(hintLog), hintLog.questions ?? 0, (hintLog.solutionViews ?? 0) > 0)}
         </div>
       )}
       {editing !== null && (

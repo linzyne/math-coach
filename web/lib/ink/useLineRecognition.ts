@@ -6,7 +6,7 @@ import type { Stroke } from "./types";
 export type LineResult =
   | { status: "pending" }
   | { status: "done"; latex: string; confidence: number | null }
-  | { status: "error"; message: string };
+  | { status: "error"; code: "fail" | "net" | "no_key" };
 
 const IDLE_MS = 1200;
 
@@ -73,11 +73,11 @@ export function useLineRecognition(byLine: Map<number, Stroke[]>, activeLine: nu
             if (r.status === 503 && d.error === "no_key") setNoKey(true);
             const res: LineResult = r.ok
               ? { status: "done", latex: d.latex ?? "", confidence: d.confidence ?? null }
-              : { status: "error", message: d.message ?? "인식 실패" };
+              : { status: "error", code: r.status === 503 ? "no_key" : "fail" };
             if (r.ok) cache.current.set(sig, res);
             return res;
           })
-          .catch((): LineResult => ({ status: "error", message: "네트워크 오류" }))
+          .catch((): LineResult => ({ status: "error", code: "net" }))
           .then((res) => {
             setResults((m) => {
               // 그사이 줄 내용이 바뀌었으면 버림

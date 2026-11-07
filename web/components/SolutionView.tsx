@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { canSpeak, latexToSpeech, speakQueue, stopSpeaking } from "@/lib/useSpeech";
 import Tex from "./Tex";
 import type { SolutionStep } from "@/app/api/hint/route";
+import { useLang, type Dict, type Lang } from "@/lib/i18n";
 
 type Step = SolutionStep;
 type State =
@@ -48,12 +49,15 @@ async function verified(problem: string, steps: Step[]): Promise<boolean> {
   }
 }
 
-function stepSpeech(s: Step, i: number, last: boolean) {
-  const head = last ? "답." : `${i + 1}단계. ${s.kind && s.kind !== "기타" ? s.kind + "." : ""}`;
-  return `${head} ${latexToSpeech(s.latex)}. ${s.explain}`;
+function stepSpeech(s: Step, i: number, last: boolean, t: Dict, lang: Lang) {
+  // 영어 음성에는 괄호 속 한국어 용어를 빼고 읽음
+  const kind = s.kind && s.kind !== "기타" ? t.kinds[s.kind]?.replace(/\s*\(.*\)$/, "") + "." : "";
+  const head = last ? t.sayAnswer : `${t.sayStep(i + 1)} ${kind}`;
+  return `${head} ${latexToSpeech(s.latex, lang)}. ${s.explain}`;
 }
 
 function SolutionFlow({ problem, steps }: { problem: string; steps: Step[] }) {
+  const { t, lang } = useLang();
   // 읽는 중인 위치: -1은 문제, 0부터는 단계
   const [reading, setReading] = useState<number | null>(null);
   const [voice, setVoice] = useState(false);
@@ -62,25 +66,25 @@ function SolutionFlow({ problem, steps }: { problem: string; steps: Step[] }) {
     return () => stopSpeaking();
   }, []);
 
-  const texts = [`문제. ${latexToSpeech(problem)}`, ...steps.map((s, i) => stepSpeech(s, i, i === steps.length - 1))];
-  const readAll = () => speakQueue(texts, (i) => setReading(i === null ? null : i - 1));
-  const readOne = (idx: number) => speakQueue([texts[idx + 1]], (i) => setReading(i === null ? null : idx));
+  const texts = [`${t.sayProblem} ${latexToSpeech(problem, lang)}`, ...steps.map((s, i) => stepSpeech(s, i, i === steps.length - 1, t, lang))];
+  const readAll = () => speakQueue(texts, (i) => setReading(i === null ? null : i - 1), lang);
+  const readOne = (idx: number) => speakQueue([texts[idx + 1]], (i) => setReading(i === null ? null : idx), lang);
 
   return (
     <>
       {voice && (
         <div className="read-bar">
           {reading === null ? (
-            <button className="primary" onClick={readAll}>🔊 처음부터 읽어주기</button>
+            <button className="primary" onClick={readAll}>{t.readAll}</button>
           ) : (
-            <button className="ghost" onClick={() => { stopSpeaking(); setReading(null); }}>■ 그만 읽기</button>
+            <button className="ghost" onClick={() => { stopSpeaking(); setReading(null); }}>{t.stopRead}</button>
           )}
-          <span className="hint-sub">카드를 누르면 그 단계만 읽어줘요</span>
+          <span className="hint-sub">{t.tapCard}</span>
         </div>
       )}
     <ol className="flow">
       <li className={`flow-card flow-problem ${reading === -1 ? "reading" : ""}`} onClick={() => voice && readOne(-1)}>
-        <span className="flow-tag">문제</span>
+        <span className="flow-tag">{t.problem}</span>
         <div className="flow-tex"><Tex tex={colorize(problem)} display /></div>
       </li>
       {steps.map((s, i) => {
@@ -91,7 +95,7 @@ function SolutionFlow({ problem, steps }: { problem: string; steps: Step[] }) {
             <div className="flow-arrow" aria-hidden>
               {s.op ? <span className="flow-op left">{s.op}</span> : <span className="flow-op-spacer" />}
               <span className="flow-arrow-line">
-                <span className="flow-kind">{st.icon} {s.kind ?? "다음 단계"}</span>
+                <span className="flow-kind">{st.icon} {s.kind ? t.kinds[s.kind] ?? s.kind : t.nextStep}</span>
                 <svg width="22" height="30" viewBox="0 0 22 30"><path d="M11 0 V24 M3 17 L11 26 L19 17" stroke="currentColor" strokeWidth="3" fill="none" strokeLinecap="round" strokeLinejoin="round" /></svg>
               </span>
               {s.op ? <span className="flow-op right">{s.op}</span> : <span className="flow-op-spacer" />}
@@ -110,10 +114,12 @@ function SolutionFlow({ problem, steps }: { problem: string; steps: Step[] }) {
 }
 
 export default function SolutionView({ problem, onView }: { problem: string; onView: () => void }) {
+  const { t, lang } = useLang();
   const [st, setSt] = useState<State>({ kind: "idle" });
+  const cacheKey = `${lang}:${problem}`;
 
   const load = async () => {
-    const cached = solutionCache.get(problem);
+    const cached = solutionCache.get(cacheKey);
     if (cached) {
       setSt({ kind: "show", steps: cached, open: true });
       onView();
@@ -125,69 +131,69 @@ export default function SolutionView({ problem, onView }: { problem: string; onV
         const r = await fetch("/api/hint", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ problem, lines: [], firstWrong: null, solution: true }),
+          body: JSON.stringify({ problem, lines: [], firstWrong: null, solution: true, lang }),
         });
         const d = await r.json().catch(() => ({}));
         if (!r.ok) {
-          setSt({ kind: "fail", message: d.message ?? "풀이를 받지 못했어요." });
+          setSt({ kind: "fail", message: t.apiErrors[d.error ?? "unknown"] ?? t.solFail });
           return;
         }
         if (d.mode === "solution" && (await verified(problem, d.steps))) {
-          solutionCache.set(problem, d.steps);
+          solutionCache.set(cacheKey, d.steps);
           setSt({ kind: "show", steps: d.steps, open: true });
           onView();
           return;
         }
       } catch {
-        setSt({ kind: "fail", message: "네트워크 오류예요." });
+        setSt({ kind: "fail", message: t.netError });
         return;
       }
     }
-    setSt({ kind: "fail", message: "정확한 풀이를 만들지 못했어요. 다시 눌러 주세요." });
+    setSt({ kind: "fail", message: t.solFail });
   };
 
   if (st.kind === "idle")
     return (
       <button className="link solution-open" onClick={() => setSt({ kind: "confirm" })}>
-        📖 풀이 보기
+        {t.solOpen}
       </button>
     );
   if (st.kind === "confirm")
     return (
       <div className="solution-confirm">
-        <p>스스로 풀면 더 오래 기억나요. 그래도 풀이를 볼까요?</p>
+        <p>{t.solConfirm}</p>
         <div className="modal-actions">
-          <button className="ghost" onClick={() => setSt({ kind: "idle" })}>조금 더 해볼게요</button>
-          <button className="primary" onClick={load}>풀이 볼래요</button>
+          <button className="ghost" onClick={() => setSt({ kind: "idle" })}>{t.solMore}</button>
+          <button className="primary" onClick={load}>{t.solYes}</button>
         </div>
       </div>
     );
-  if (st.kind === "loading") return <p className="hint-loading solution-box">풀이를 만들고 확인하는 중…</p>;
+  if (st.kind === "loading") return <p className="hint-loading solution-box">{t.solLoading}</p>;
   if (st.kind === "fail")
     return (
       <div className="solution-box">
         <p className="hint-sub ask-err">{st.message}</p>
-        <button className="ghost" onClick={load}>다시 시도</button>
+        <button className="ghost" onClick={load}>{t.solTry}</button>
       </div>
     );
   return (
     <>
       <button className="link solution-open" onClick={() => setSt({ ...st, open: true })}>
-        📖 풀이 다시 보기
+        {t.solReopen}
       </button>
       {st.open && (
         <div className="modal-bg solution-bg" onClick={() => setSt({ ...st, open: false })}>
-          <div className="modal solution-modal" onClick={(e) => e.stopPropagation()} role="dialog" aria-label="정답 풀이">
+          <div className="modal solution-modal" onClick={(e) => e.stopPropagation()} role="dialog" aria-label={t.solTitle}>
             <div className="solution-head">
-              <h2>정답 풀이</h2>
-              <button className="hint-close" onClick={() => setSt({ ...st, open: false })} aria-label="닫기">✕</button>
+              <h2>{t.solTitle}</h2>
+              <button className="hint-close" onClick={() => setSt({ ...st, open: false })} aria-label={t.close}>✕</button>
             </div>
             <div className="legend">
-              <span><b className="legend-x">x 항</b> 파란색</span>
-              <span>화살표 양옆 = 양변에 똑같이 한 계산</span>
+              <span><b className="legend-x">{t.legendX}</b>{t.legendXTail}</span>
+              <span>{t.legendArrow}</span>
             </div>
             <SolutionFlow problem={problem} steps={st.steps} />
-            <p className="hint-sub">풀이를 본 뒤에는 창을 닫고 직접 다시 써 보세요. ✍️</p>
+            <p className="hint-sub">{t.solAfter}</p>
           </div>
         </div>
       )}

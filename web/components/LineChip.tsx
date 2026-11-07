@@ -1,19 +1,21 @@
 "use client";
 
 import Tex from "./Tex";
+import { useLang } from "@/lib/i18n";
 import type { LineResult } from "@/lib/ink/useLineRecognition";
 
 type Props = { result?: LineResult; typed?: string; onRetry: () => void };
 
 export default function LineChip({ result, typed, onRetry }: Props) {
+  const { t } = useLang();
   if (typed)
     return (
-      <span className="chip done typed" title="키보드로 입력함">
+      <span className="chip done typed" title="⌨">
         <Tex tex={typed} />
       </span>
     );
   if (!result) return null;
-  if (result.status === "pending") return <span className="chip pending">인식 중…</span>;
+  if (result.status === "pending") return <span className="chip pending">{t.recPending}</span>;
   if (result.status === "error")
     return (
       <span
@@ -24,7 +26,7 @@ export default function LineChip({ result, typed, onRetry }: Props) {
           onRetry();
         }}
       >
-        {result.message} · 다시
+        {result.code === "net" ? t.recNet : result.code === "no_key" ? t.noKeyRec : t.recFail} · {t.retry}
       </span>
     );
   if (!result.latex) return <span className="chip muted">?</span>;

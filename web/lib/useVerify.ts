@@ -8,7 +8,7 @@ export type VerifyState = {
   firstWrong: number | null;
   solved: boolean;
   checking: boolean;
-  error: string | null;
+  error: "net" | "fail" | null;
 };
 
 const initial: VerifyState = { statuses: new Map(), firstWrong: null, solved: false, checking: false, error: null };
@@ -40,12 +40,12 @@ export function useVerify(problem: string, lineTexts: Map<number, string>): Veri
             firstWrong: d.first_wrong,
             solved: d.solved,
             checking: false,
-            error: d.ok ? null : d.error ?? "검사 실패",
+            error: d.ok ? null : "fail",
           });
         })
         .catch((e: Error) => {
           if (e.name === "AbortError") return;
-          setState((s) => ({ ...s, checking: false, error: "검사 서버에 연결하지 못했어요." }));
+          setState((s) => ({ ...s, checking: false, error: "net" }));
         });
     }, 500);
     return () => {

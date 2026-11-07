@@ -1,6 +1,6 @@
 {
-  "name": "수학 코치",
-  "short_name": "수학 코치",
+  "name": "Math Coach",
+  "short_name": "Math Coach",
   "start_url": "/",
   "display": "standalone",
   "orientation": "any",

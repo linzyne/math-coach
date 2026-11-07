@@ -2,12 +2,13 @@ import type { Metadata, Viewport } from "next";
 import "katex/dist/katex.min.css";
 import "./globals.css";
 import SWRegister from "@/components/SWRegister";
+import { LangProvider } from "@/lib/i18n";
 
 export const metadata: Metadata = {
-  title: "수학 코치",
-  description: "애플펜슬로 푸는 일차방정식 코칭",
+  title: "Math Coach",
+  description: "Linear equations coaching with Apple Pencil",
   manifest: "/manifest.webmanifest",
-  appleWebApp: { capable: true, title: "수학 코치", statusBarStyle: "default" },
+  appleWebApp: { capable: true, title: "Math Coach", statusBarStyle: "default" },
   icons: { icon: "/icons/icon-192.png", apple: "/icons/apple-touch-icon.png" },
 };
 
@@ -22,9 +23,9 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="ko">
+    <html lang="en">
       <body>
-        {children}
+        <LangProvider>{children}</LangProvider>
         <SWRegister />
       </body>
     </html>

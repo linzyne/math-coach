@@ -1,6 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import type { Lang } from "./i18n";
+
+const LOCALE: Record<Lang, string> = { en: "en-US", ko: "ko-KR" };
 
 // 브라우저 내장 음성 인식 (Safari/Chrome: webkitSpeechRecognition). 서버 비용 없음.
 type Rec = {
@@ -15,16 +18,18 @@ type Rec = {
   onend: (() => void) | null;
 };
 
+export type SpeechError = "denied" | "no_speech" | "fail";
+
 function getCtor(): (new () => Rec) | null {
   if (typeof window === "undefined") return null;
   const w = window as unknown as { SpeechRecognition?: new () => Rec; webkitSpeechRecognition?: new () => Rec };
   return w.SpeechRecognition ?? w.webkitSpeechRecognition ?? null;
 }
 
-export function useSpeech(onText: (text: string, final: boolean) => void) {
+export function useSpeech(onText: (text: string, final: boolean) => void, lang: Lang) {
   const [supported, setSupported] = useState(false);
   const [listening, setListening] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<SpeechError | null>(null);
   const recRef = useRef<Rec | null>(null);
   const cb = useRef(onText);
   cb.current = onText;
@@ -36,7 +41,7 @@ export function useSpeech(onText: (text: string, final: boolean) => void) {
     const Ctor = getCtor();
     if (!Ctor || recRef.current) return;
     const rec = new Ctor();
-    rec.lang = "ko-KR";
+    rec.lang = LOCALE[lang];
     rec.interimResults = true;
     rec.continuous = false;
     let text = "";
@@ -50,13 +55,7 @@ export function useSpeech(onText: (text: string, final: boolean) => void) {
       cb.current((text + interim).trim(), false);
     };
     rec.onerror = (e) => {
-      setError(
-        e.error === "not-allowed" || e.error === "service-not-allowed"
-          ? "마이크 권한을 허용해 주세요."
-          : e.error === "no-speech"
-          ? "목소리가 들리지 않았어요."
-          : "음성 인식에 실패했어요.",
-      );
+      setError(e.error === "not-allowed" || e.error === "service-not-allowed" ? "denied" : e.error === "no-speech" ? "no_speech" : "fail");
     };
     rec.onend = () => {
       recRef.current = null;
@@ -71,9 +70,9 @@ export function useSpeech(onText: (text: string, final: boolean) => void) {
     } catch {
       recRef.current = null;
       setListening(false);
-      setError("음성 인식을 시작하지 못했어요.");
+      setError("fail");
     }
-  }, []);
+  }, [lang]);
 
   const stop = useCallback(() => recRef.current?.stop(), []);
 
@@ -81,36 +80,29 @@ export function useSpeech(onText: (text: string, final: boolean) => void) {
 }
 
 /** 답변 읽어주기 (브라우저 내장 TTS) */
-export function speak(text: string) {
-  if (typeof window === "undefined" || !("speechSynthesis" in window)) return;
-  window.speechSynthesis.cancel();
-  const u = new SpeechSynthesisUtterance(text);
-  u.lang = "ko-KR";
-  u.rate = 1;
-  window.speechSynthesis.speak(u);
+export function speak(text: string, lang: Lang) {
+  speakQueue([text], () => {}, lang);
 }
 
-/** LaTeX 수식을 한국어로 읽기 좋은 문장으로 (예: \frac{x}{3} → "3분의 엑스") */
-export function latexToSpeech(src: string): string {
-  let s = src;
-  s = s.replace(/\\textcolor\{[^}]*\}/g, "");
-  // 분수: 안쪽부터 반복해서 바꿈
-  for (let i = 0; i < 5; i++) {
-    s = s.replace(/\\[dt]?frac\{([^{}]*)\}\{([^{}]*)\}/g, (_, a, b) => ` ${b}분의 ${a} `);
-  }
+/** LaTeX 수식을 읽기 좋은 문장으로 (예: \frac{x}{3} → "x over 3" / "3분의 엑스") */
+export function latexToSpeech(src: string, lang: Lang): string {
+  const W =
+    lang === "en"
+      ? { frac: (a: string, b: string) => ` ${a} over ${b} `, times: " times ", div: " divided by ", open: " open bracket ", close: " close bracket ", eq: " equals ", plus: " plus ", minus: " minus ", x: " x " }
+      : { frac: (a: string, b: string) => ` ${b}분의 ${a} `, times: " 곱하기 ", div: " 나누기 ", open: " 괄호 ", close: " 괄호 닫고 ", eq: " 은 ", plus: " 더하기 ", minus: " 빼기 ", x: "엑스" };
+  let s = src.replace(/\\textcolor\{[^}]*\}/g, "");
+  for (let i = 0; i < 5; i++) s = s.replace(/\\[dt]?frac\{([^{}]*)\}\{([^{}]*)\}/g, (_, a, b) => W.frac(a, b));
   s = s
     .replace(/\\left|\\right/g, "")
-    .replace(/\\(cdot|times)/g, " 곱하기 ")
-    .replace(/\\div/g, " 나누기 ")
+    .replace(/\\(cdot|times)|×/g, W.times)
+    .replace(/\\div|÷/g, W.div)
     .replace(/[{}]/g, " ")
-    .replace(/\(/g, " 괄호 ")
-    .replace(/\)/g, " 괄호 닫고 ")
-    .replace(/=/g, " 은 ")
-    .replace(/\+/g, " 더하기 ")
-    .replace(/[-−]/g, " 빼기 ")
-    .replace(/×/g, " 곱하기 ")
-    .replace(/÷/g, " 나누기 ")
-    .replace(/(?<![a-zA-Z\\])x(?![a-zA-Z])/g, "엑스")
+    .replace(/\(/g, W.open)
+    .replace(/\)/g, W.close)
+    .replace(/=/g, W.eq)
+    .replace(/\+/g, W.plus)
+    .replace(/[-−]/g, W.minus)
+    .replace(/(?<![a-zA-Z\\])x(?![a-zA-Z])/g, W.x)
     .replace(/\\[a-zA-Z]+/g, " ");
   return s.replace(/\s+/g, " ").trim();
 }
@@ -118,8 +110,8 @@ export function latexToSpeech(src: string): string {
 let queueToken = 0;
 
 /** 여러 문장을 차례로 읽고, 지금 읽는 번호를 알려준다 */
-export function speakQueue(texts: string[], onIndex: (i: number | null) => void) {
-  if (typeof window === "undefined" || !("speechSynthesis" in window)) return;
+export function speakQueue(texts: string[], onIndex: (i: number | null) => void, lang: Lang) {
+  if (!canSpeak()) return;
   const token = ++queueToken;
   window.speechSynthesis.cancel();
   const next = (i: number) => {
@@ -127,7 +119,7 @@ export function speakQueue(texts: string[], onIndex: (i: number | null) => void)
     if (i >= texts.length) return onIndex(null);
     onIndex(i);
     const u = new SpeechSynthesisUtterance(texts[i]);
-    u.lang = "ko-KR";
+    u.lang = LOCALE[lang];
     u.rate = 0.95;
     u.onend = () => setTimeout(() => next(i + 1), 250);
     u.onerror = () => onIndex(null);
@@ -138,7 +130,7 @@ export function speakQueue(texts: string[], onIndex: (i: number | null) => void)
 
 export function stopSpeaking() {
   queueToken++;
-  if (typeof window !== "undefined" && "speechSynthesis" in window) window.speechSynthesis.cancel();
+  if (canSpeak()) window.speechSynthesis.cancel();
 }
 
 export const canSpeak = () => typeof window !== "undefined" && "speechSynthesis" in window;

@@ -6,6 +6,7 @@ import type { LineStatus } from "@/lib/useVerify";
 import type { HintLog } from "@/lib/hintLog";
 import { speak, useSpeech } from "@/lib/useSpeech";
 import SolutionView from "./SolutionView";
+import { useLang } from "@/lib/i18n";
 
 type Props = {
   problem: string;
@@ -27,9 +28,11 @@ type State =
   | { kind: "error"; key: string; line: number; mistakeType: string; message: string; fixed: boolean }
   | { kind: "next"; key: string; hints: [string, string, string]; shown: number };
 
-const LEVEL_LABEL = ["방향", "구체적으로", "다음 줄"];
 
 export default function HintPanel(p: Props) {
+  const { t, lang } = useLang();
+  const errMsg = (d: { error?: string; detail?: string }) =>
+    (t.apiErrors[d.error ?? "unknown"] ?? t.hintFail) + (d.detail ? ` (${d.detail})` : "");
   const [st, setSt] = useState<State>({ kind: "closed" });
   const [qa, setQa] = useState<{ q: string; a: string | null; failed?: boolean }[]>([]);
   const [question, setQuestion] = useState("");
@@ -38,7 +41,7 @@ export default function HintPanel(p: Props) {
   const lines = [...p.lineTexts.entries()]
     .sort((a, b) => a[0] - b[0])
     .map(([line, latex]) => ({ line, latex, status: p.statuses.get(line) }));
-  const key = JSON.stringify([lines, p.firstWrong]);
+  const key = JSON.stringify([lines, p.firstWrong, lang]);
 
   // 짚어준 줄을 학생이 고치면 칭찬하고 닫기
   const { statuses, solved, onFocusLine } = p;
@@ -85,14 +88,14 @@ export default function HintPanel(p: Props) {
       const r = await fetch("/api/hint", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ problem: p.problem, lines, firstWrong: p.firstWrong }),
+        body: JSON.stringify({ problem: p.problem, lines, firstWrong: p.firstWrong, lang }),
       });
       const d = await r.json().catch(() => ({}));
-      if (!r.ok) return setSt({ kind: "fail", message: d.message ?? "힌트를 받지 못했어요." });
+      if (!r.ok) return setSt({ kind: "fail", message: errMsg(d) });
       cache.current.set(key, d as HintResponse);
       show(d as HintResponse, key);
     } catch {
-      setSt({ kind: "fail", message: "네트워크 오류예요. 다시 눌러 주세요." });
+      setSt({ kind: "fail", message: t.netError });
     }
   };
 
@@ -104,19 +107,19 @@ export default function HintPanel(p: Props) {
     const history = qa.filter((x) => x.a && !x.failed).slice(-3).map((x) => ({ q: x.q, a: x.a as string }));
     setQa((list) => [...list, { q, a: null }]);
     p.setLog({ ...p.log, questions: (p.log.questions ?? 0) + 1 });
-    let answer = "답을 받지 못했어요. 다시 물어봐 주세요.";
+    let answer = t.answerFail;
     let failed = true;
     try {
       const r = await fetch("/api/hint", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ problem: p.problem, lines, firstWrong: p.firstWrong, question: q, history }),
+        body: JSON.stringify({ problem: p.problem, lines, firstWrong: p.firstWrong, question: q, history, lang }),
       });
       const d = await r.json().catch(() => ({}));
       if (r.ok && d.mode === "answer") {
         answer = d.answer;
         failed = false;
-      } else if (d.message) answer = d.message;
+      } else if (d.error) answer = errMsg(d);
     } catch {}
     setQa((list) => list.map((x, i) => (i === list.length - 1 ? { q, a: answer, failed } : x)));
   };
@@ -125,7 +128,7 @@ export default function HintPanel(p: Props) {
   const voice = useSpeech((text, final) => {
     setQuestion(text);
     if (final) void sendQuestion(undefined, text);
-  });
+  }, lang);
 
   const solutionBox = (
     <SolutionView problem={p.problem} onView={() => p.setLog({ ...p.log, solutionViews: (p.log.solutionViews ?? 0) + 1 })} />
@@ -139,9 +142,9 @@ export default function HintPanel(p: Props) {
             <li key={i}>
               <p className="ask-q">{x.q}</p>
               <p className={`ask-a ${x.a === null ? "hint-loading" : ""} ${x.failed ? "failed" : ""}`}>
-                {x.a ?? "생각하는 중…"}
+                {x.a ?? t.answering}
                 {x.a && !x.failed && (
-                  <button type="button" className="speak-btn" onClick={() => speak(x.a as string)} aria-label="답변 읽어주기">
+                  <button type="button" className="speak-btn" onClick={() => speak(x.a as string, lang)} aria-label={t.readAnswer}>
                     🔊
                   </button>
                 )}
@@ -155,8 +158,8 @@ export default function HintPanel(p: Props) {
           value={question}
           onChange={(e) => setQuestion(e.target.value)}
           maxLength={300}
-          placeholder={voice.listening ? "듣고 있어요… 말해 보세요" : "그래도 모르겠으면 직접 물어보세요"}
-          aria-label="직접 질문하기"
+          placeholder={voice.listening ? t.listening : t.askPlaceholder}
+          aria-label={t.askLabel}
           enterKeyHint="send"
         />
         {voice.supported && (
@@ -165,16 +168,16 @@ export default function HintPanel(p: Props) {
             className={`mic-btn ${voice.listening ? "on" : ""}`}
             onClick={voice.listening ? voice.stop : voice.start}
             disabled={qa.some((x) => x.a === null)}
-            aria-label={voice.listening ? "음성 입력 멈추기" : "말로 질문하기"}
+            aria-label={voice.listening ? t.micStop : t.micStart}
           >
             {voice.listening ? "■" : "🎤"}
           </button>
         )}
         <button type="submit" className="primary" disabled={!question.trim() || qa.some((x) => x.a === null) || voice.listening}>
-          질문
+          {t.askBtn}
         </button>
       </form>
-      {voice.error && <p className="hint-sub ask-err">{voice.error}</p>}
+      {voice.error && <p className="hint-sub ask-err">{voice.error === "denied" ? t.micDenied : voice.error === "no_speech" ? t.micNoSpeech : t.micFail}</p>}
     </div>
   );
 
@@ -195,30 +198,30 @@ export default function HintPanel(p: Props) {
   return (
     <>
       {st.kind === "closed" && (
-        <button className="help-fab" onClick={ask} disabled={p.checking} aria-label="도움 요청">
-          🙋 도움 요청
+        <button className="help-fab" onClick={ask} disabled={p.checking} aria-label={t.help}>
+          {t.help}
         </button>
       )}
       {st.kind !== "closed" && (
-        <div className="hint-sheet" role="dialog" aria-label="힌트">
-          <button className="hint-close" onClick={close} aria-label="닫기">✕</button>
-          {st.kind === "loading" && <p className="hint-loading">어디서 막혔는지 살펴보는 중…</p>}
+        <div className="hint-sheet" role="dialog" aria-label={t.help}>
+          <button className="hint-close" onClick={close} aria-label={t.close}>✕</button>
+          {st.kind === "loading" && <p className="hint-loading">{t.thinking}</p>}
           {st.kind === "fail" && (
             <>
               <p>{st.message}</p>
-              <button className="primary" onClick={ask}>다시 요청</button>
+              <button className="primary" onClick={ask}>{t.askAgain}</button>
             </>
           )}
           {st.kind === "error" &&
             (st.fixed ? (
-              <p className="hint-fixed">잘 고쳤어요! 👍 계속 풀어 보세요.</p>
+              <p className="hint-fixed">{t.fixed}</p>
             ) : (
               <>
                 <div className="hint-tag">
-                  <b>{st.line + 1}번 줄</b>을 다시 볼까요? · <span>{st.mistakeType}</span>
+                  <b>{t.lookAgain(st.line + 1)}</b>{t.lookAgainTail} · <span>{st.mistakeType}</span>
                 </div>
                 <p className="hint-text">{st.message}</p>
-                <p className="hint-sub">그 줄을 고치면 자동으로 다시 검사해요.</p>
+                <p className="hint-sub">{t.autoRecheck}</p>
                 {solutionBox}
                 {askBox}
               </>
@@ -228,17 +231,17 @@ export default function HintPanel(p: Props) {
               <ol className="hint-levels">
                 {st.hints.slice(0, st.shown).map((h, i) => (
                   <li key={i}>
-                    <span className="hint-lv">힌트 {i + 1} · {LEVEL_LABEL[i]}</span>
+                    <span className="hint-lv">{t.hintLv(i + 1)} · {t.hintLabels[i]}</span>
                     <p className="hint-text">{h}</p>
                   </li>
                 ))}
               </ol>
               {st.shown < 3 ? (
                 <button className="ghost" onClick={more}>
-                  {st.shown === 1 ? "조금 더 알려줘요 (2/3)" : "다음 줄을 보여줘요 (3/3)"}
+                  {st.shown === 1 ? t.more1 : t.more2}
                 </button>
               ) : (
-                <p className="hint-sub">이제 직접 써 보세요!</p>
+                <p className="hint-sub">{t.tryNow}</p>
               )}
               {solutionBox}
               {askBox}

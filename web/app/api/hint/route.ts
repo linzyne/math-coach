@@ -6,7 +6,7 @@ export const maxDuration = 60;
 
 type LineIn = { line: number; latex: string; status?: "ok" | "wrong" | "unparsed" };
 type QA = { q: string; a: string };
-type Body = { problem: string; lines: LineIn[]; firstWrong: number | null; question?: string; history?: QA[]; solution?: boolean };
+type Body = { problem: string; lines: LineIn[]; firstWrong: number | null; question?: string; history?: QA[]; solution?: boolean; lang?: "en" | "ko" };
 
 export type HintResponse =
   | { mode: "error"; line: number; mistakeType: string; message: string }
@@ -18,6 +18,22 @@ export const STEP_KINDS = ["괄호 풀기", "분모 없애기", "이항", "동�
 export type SolutionStep = { latex: string; explain: string; kind?: (typeof STEP_KINDS)[number]; op?: string };
 
 const MISTAKE_TYPES = ["부호 실수", "이항 실수", "분배법칙 실수", "계산 실수", "분모 처리 실수", "소수 처리 실수", "식 옮겨 쓰기 실수", "기타"] as const;
+const MISTAKE_TYPES_EN = [
+  "Sign error (부호 실수)",
+  "Moving terms error (이항 실수)",
+  "Expanding brackets error (분배법칙 실수)",
+  "Arithmetic error (계산 실수)",
+  "Fraction error (분모 처리 실수)",
+  "Decimal error (소수 처리 실수)",
+  "Copying error (식 옮겨 쓰기 실수)",
+  "Other (기타)",
+] as const;
+
+/** 영어 모드: 학생이 영어 모국어 화자 */
+const EN_RULE = `
+[언어] 학생은 영어가 모국어야. 학생에게 보이는 모든 문장(message, hint1~3, answer, explain)은 쉬운 영어로 쓴다.
+- 중요한 수학 용어는 한국 학교 수업을 따라갈 수 있게 처음 한 번은 한국어를 괄호로 붙인다. 예: move the term to the other side (이항), expand the brackets (괄호 풀기)
+- 말투는 짧고 따뜻하게. "Line 2"처럼 줄 번호를 말한다.`;
 
 const SYSTEM = `너는 중학생의 일차방정식 풀이를 돕는 다정한 수학 코치야.
 가장 중요한 원칙: 학생이 스스로 고치고 스스로 풀게 한다. 정답이나 고친 식을 먼저 알려주지 않는다.
@@ -80,7 +96,7 @@ function solutionPrompt(b: Body) {
 - steps의 각 항목은 한 줄(한 단계)의 식이다. 첫 줄은 문제를 변형한 첫 단계부터 시작하고, 마지막 줄은 반드시 'x = 값' 꼴로 끝낸다.
 - latex: 그 줄의 식을 LaTeX로. 등호는 하나만. 분수는 \\frac{}{} 사용.
 - explain: 그 줄에서 무엇을 했는지 한 문장 (예: "양변에서 5를 빼요.", "괄호를 풀어요.").
-- kind: 그 줄에서 한 동작의 종류. 괄호 풀기 / 분모 없애기(양변에 수를 곱함) / 이항(항을 반대편으로 옮김, 양변에 더하거나 뺌) / 동류항 정리 / 양변 나누기 / 약분 / 기타
+- kind: 그 줄에서 한 동작의 종류 (언어와 상관없이 아래 한국어 값 중 하나). 괄호 풀기 / 분모 없애기(양변에 수를 곱함) / 이항(항을 반대편으로 옮김, 양변에 더하거나 뺌) / 동류항 정리 / 양변 나누기 / 약분 / 기타
 - op: 양변에 한 연산을 짧게. 예: "×6", "−5", "+2x", "÷2". 양변 연산이 아니면 빈 문자열.
 - 한 줄에 한 가지 일만 한다. 보통 3~6줄.`;
 }
@@ -114,15 +130,15 @@ const ANSWER_SCHEMA = {
   additionalProperties: false,
 };
 
-const ERROR_SCHEMA = {
+const errorSchema = (en: boolean) => ({
   type: "object",
   properties: {
-    mistake_type: { type: "string", enum: [...MISTAKE_TYPES] },
+    mistake_type: { type: "string", enum: en ? [...MISTAKE_TYPES_EN] : [...MISTAKE_TYPES] },
     message: { type: "string" },
   },
   required: ["mistake_type", "message"],
   additionalProperties: false,
-};
+});
 
 const NEXT_SCHEMA = {
   type: "object",
@@ -173,6 +189,7 @@ export async function POST(req: Request) {
   }
   if (typeof b?.problem !== "string" || !Array.isArray(b.lines) || b.lines.length > 40 || b.problem.length > 300 ||
       b.lines.some((l) => typeof l.latex !== "string" || l.latex.length > 300) ||
+      (b.lang !== undefined && b.lang !== "en" && b.lang !== "ko") ||
       (b.question !== undefined && (typeof b.question !== "string" || b.question.length > 300 || !b.question.trim())) ||
       (b.history !== undefined && (!Array.isArray(b.history) || b.history.length > 6 ||
         b.history.some((h) => typeof h?.q !== "string" || typeof h?.a !== "string" || h.q.length > 300 || h.a.length > 800)))) {
@@ -182,7 +199,7 @@ export async function POST(req: Request) {
   const question = b.question?.trim();
   const wrong = !question && b.firstWrong !== null ? lines.find((l) => l.line === b.firstWrong) : undefined;
   const solution = b.solution === true;
-  const schema = solution ? SOLUTION_SCHEMA : question ? ANSWER_SCHEMA : wrong ? ERROR_SCHEMA : NEXT_SCHEMA;
+  const schema = solution ? SOLUTION_SCHEMA : question ? ANSWER_SCHEMA : wrong ? errorSchema(b.lang === "en") : NEXT_SCHEMA;
   const prompt = solution
     ? solutionPrompt(b)
     : question
@@ -194,6 +211,7 @@ export async function POST(req: Request) {
   // authToken: null → 다른 인증 환경변수가 있어도 API 키만 사용
   client ??= new Anthropic({ apiKey, authToken: null });
   try {
+    const en = b.lang === "en";
     const res = await client.beta.messages.create({
       model: "claude-opus-5-5",
       max_tokens: 4000,
@@ -202,14 +220,14 @@ export async function POST(req: Request) {
       // 안전 분류기가 거절하면 서버에서 추천 모델로 자동 재시도
       betas: ["server-side-fallback-2026-07-01"],
       fallbacks: "default",
-      system: SYSTEM,
+      system: en ? SYSTEM + EN_RULE : SYSTEM,
       messages: [{ role: "user", content: prompt }],
     });
 
     if (res.stop_reason === "refusal" || res.stop_reason === "max_tokens") {
       console.error("hint stop_reason", res.stop_reason, res.stop_details);
       return NextResponse.json(
-        { error: "no_hint", message: `힌트를 만들지 못했어요. 다시 눌러 주세요. (${res.stop_reason})` },
+        { error: "no_hint", message: `힌트를 만들지 못했어요. (${res.stop_reason})`, detail: res.stop_reason },
         { status: 502 },
       );
     }
@@ -218,7 +236,7 @@ export async function POST(req: Request) {
     if (!data) {
       console.error("hint parse failed", res.stop_reason, res.content.map((c) => c.type), text.slice(0, 500));
       return NextResponse.json(
-        { error: "parse", message: `힌트 형식을 읽지 못했어요. 다시 눌러 주세요. (${res.content.map((c) => c.type).join(",") || "empty"})` },
+        { error: "parse", message: "힌트 형식을 읽지 못했어요.", detail: res.content.map((c) => c.type).join(",") || "empty" },
         { status: 502 },
       );
     }
@@ -243,14 +261,14 @@ export async function POST(req: Request) {
     if (e instanceof Anthropic.APIError) {
       console.error("claude api error", e.status, e.message);
       return NextResponse.json(
-        { error: "api", message: `힌트 서버에 문제가 있어요. (${e.status ?? ""} ${shortMsg(e.message)})` },
+        { error: "api", message: "힌트 서버에 문제가 있어요.", detail: `${e.status ?? ""} ${shortMsg(e.message)}` },
         { status: 502 },
       );
     }
     console.error("hint error", e);
     const err = e as Error;
     return NextResponse.json(
-      { error: "unknown", message: `힌트를 만들지 못했어요. (${err?.name ?? "Error"}: ${shortMsg(err?.message)})` },
+      { error: "unknown", message: "힌트를 만들지 못했어요.", detail: `${err?.name ?? "Error"}: ${shortMsg(err?.message)}` },
       { status: 500 },
     );
   }

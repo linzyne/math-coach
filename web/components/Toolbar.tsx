@@ -1,6 +1,7 @@
 "use client";
 
 import type { Tool } from "./InkCanvas";
+import { useLang } from "@/lib/i18n";
 
 type Props = {
   tool: Tool;
@@ -15,24 +16,25 @@ type Props = {
 };
 
 export default function Toolbar(p: Props) {
+  const { t } = useLang();
   return (
-    <div className="toolbar" role="toolbar" aria-label="필기 도구">
+    <div className="toolbar" role="toolbar" aria-label={t.tools}>
       <div className="seg">
         <button className={p.tool === "pen" ? "on" : ""} onClick={() => p.setTool("pen")} aria-pressed={p.tool === "pen"}>
-          ✏️ 펜
+          {t.pen}
         </button>
         <button className={p.tool === "eraser" ? "on" : ""} onClick={() => p.setTool("eraser")} aria-pressed={p.tool === "eraser"}>
-          🧽 지우개
+          {t.eraser}
         </button>
       </div>
       <div className="seg">
-        <button onClick={p.onUndo} disabled={!p.canUndo} aria-label="되돌리기">↶ 되돌리기</button>
-        <button onClick={p.onRedo} disabled={!p.canRedo} aria-label="다시 실행">↷ 다시</button>
+        <button onClick={p.onUndo} disabled={!p.canUndo} aria-label={t.undo}>{t.undo}</button>
+        <button onClick={p.onRedo} disabled={!p.canRedo} aria-label={t.redo}>{t.redo}</button>
       </div>
-      <button className="ghost" onClick={p.onClear}>모두 지우기</button>
+      <button className="ghost" onClick={p.onClear}>{t.clearAll}</button>
       <label className="touch-toggle">
         <input type="checkbox" checked={p.allowTouch} onChange={(e) => p.setAllowTouch(e.target.checked)} />
-        손가락으로도 쓰기
+        {t.fingerDraw}
       </label>
     </div>
   );
