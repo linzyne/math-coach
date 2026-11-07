@@ -70,7 +70,8 @@ export default function MathInput({ value, onChange, onSubmit, autoFocus, placeh
     loadMathLive().then(() => alive && setReady(true));
     return () => {
       alive = false;
-      window.mathVirtualKeyboard?.hide();
+      // 화면을 떠날 때 수식 키보드가 남아서 다른 화면의 버튼을 가리지 않게
+      window.mathVirtualKeyboard?.hide({ animate: false });
     };
   }, []);
 

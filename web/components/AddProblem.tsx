@@ -143,7 +143,7 @@ export default function AddProblem({ onClose, onAdded }: { onClose: () => void; 
                 <button className="primary big" onClick={() => fileRef.current?.click()} disabled={busy}>
                   {busy ? t.reading : t.choosePhoto}
                 </button>
-                {typeof navigator !== "undefined" && "clipboard" in navigator && "read" in navigator.clipboard && (
+                {typeof navigator !== "undefined" && typeof navigator.clipboard?.read === "function" && (
                   <button className="ghost big" onClick={pasteFromClipboard} disabled={busy}>
                     {t.pasteImage}
                   </button>

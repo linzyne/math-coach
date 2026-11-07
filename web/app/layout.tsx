@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import "katex/dist/katex.min.css";
 import "./globals.css";
 import SWRegister from "@/components/SWRegister";
+import ErrorReporter from "@/components/ErrorReporter";
 import { LangProvider } from "@/lib/i18n";
 
 export const metadata: Metadata = {
@@ -27,6 +28,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body>
         <LangProvider>{children}</LangProvider>
         <SWRegister />
+        <ErrorReporter />
       </body>
     </html>
   );

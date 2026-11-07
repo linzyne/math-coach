@@ -74,7 +74,7 @@ a { color: inherit; text-decoration: none; }
 .chip.error { background: #fdecea; color: #b3261e; cursor: pointer; min-height: 32px; }
 .chip.pending { animation: pulse 1.2s ease-in-out infinite; }
 @keyframes pulse { 50% { opacity: .45; } }
-.rec-layer { position: absolute; inset: 0; pointer-events: none; }
+.rec-layer { position: absolute; top: 0; right: 0; bottom: 0; left: 0; pointer-events: none; }
 .rec-overlay { display: none; position: absolute; right: 6px; max-width: 70%; pointer-events: none; }
 .rec-overlay .chip { opacity: .92; font-size: 12px; }
 .rec-overlay .chip.error { pointer-events: auto; }
@@ -86,12 +86,12 @@ a { color: inherit; text-decoration: none; }
 
 .paper { position: relative; flex: 1; min-width: 0; background: var(--paper);
   border-left: 1px solid #f0c9c4; box-shadow: 0 1px 3px rgba(0,0,0,.05); }
-.lines { position: absolute; inset: 0; pointer-events: none;
+.lines { position: absolute; top: 0; right: 0; bottom: 0; left: 0; pointer-events: none;
   background-image: repeating-linear-gradient(to bottom, transparent 0, transparent calc(var(--line-h) - 1px), var(--rule) calc(var(--line-h) - 1px), var(--rule) var(--line-h));
   background-position: 0 var(--top); background-repeat: repeat-y; }
 .active-band { position: absolute; left: 0; right: 0; background: var(--accent-soft); opacity: .55; }
 .ink-wrap { position: relative; width: 100%; }
-.ink-layer { position: absolute; inset: 0; display: block; }
+.ink-layer { position: absolute; top: 0; right: 0; bottom: 0; left: 0; display: block; }
 .ink-input {
   touch-action: none; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none;
   cursor: crosshair;
@@ -111,7 +111,7 @@ a { color: inherit; text-decoration: none; }
 .ghost { background: transparent; border: 1px solid #ddd8ca; border-radius: 10px; padding: 10px 14px; min-height: 44px; cursor: pointer; }
 .link { background: none; border: 0; color: var(--accent); padding: 6px 0; text-align: left; cursor: pointer; }
 .muted { color: var(--muted); }
-.modal-bg { position: fixed; inset: 0; background: rgba(20, 24, 36, .35); display: flex; align-items: flex-start; justify-content: center;
+.modal-bg { position: fixed; top: 0; right: 0; bottom: 0; left: 0; background: rgba(20, 24, 36, .35); display: flex; align-items: flex-start; justify-content: center;
   padding: calc(env(safe-area-inset-top) + 48px) 16px 16px; z-index: 50; }
 .modal { width: 100%; max-width: 520px; background: var(--paper); border-radius: 16px; padding: 20px; box-shadow: 0 10px 40px rgba(0,0,0,.2);
   display: flex; flex-direction: column; gap: 10px; }
@@ -264,3 +264,8 @@ a { color: inherit; text-decoration: none; }
 .math-input.loading { color: var(--muted); }
 math-field::part(menu-toggle) { display: none; }
 .raw-toggle { font-size: 13px; align-self: flex-start; }
+
+.error-bar { position: fixed; left: 8px; right: 8px; top: calc(env(safe-area-inset-top) + 8px); z-index: 1000; background: #b3261e; color: #fff;
+  padding: 10px 12px; border-radius: 10px; font-size: 13px; word-break: break-word; }
+.error-ua { opacity: .75; font-size: 11px; margin-top: 4px; }
+.error-pre { white-space: pre-wrap; background: #fdecea; color: #b3261e; padding: 12px; border-radius: 10px; font-size: 13px; }
