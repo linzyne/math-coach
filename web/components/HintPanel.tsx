@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import type { HintResponse } from "@/app/api/hint/route";
 import type { LineStatus } from "@/lib/useVerify";
 import type { HintLog } from "@/lib/hintLog";
+import { speak, useSpeech } from "@/lib/useSpeech";
 
 type Props = {
   problem: string;
@@ -29,6 +30,8 @@ const LEVEL_LABEL = ["방향", "구체적으로", "다음 줄"];
 
 export default function HintPanel(p: Props) {
   const [st, setSt] = useState<State>({ kind: "closed" });
+  const [qa, setQa] = useState<{ q: string; a: string | null; failed?: boolean }[]>([]);
+  const [question, setQuestion] = useState("");
   const cache = useRef(new Map<string, HintResponse>());
 
   const lines = [...p.lineTexts.entries()]
@@ -65,7 +68,7 @@ export default function HintPanel(p: Props) {
       setSt({ kind: "error", key: k, line: r.line, mistakeType: r.mistakeType, message: r.message, fixed: false });
       p.onFocusLine(r.line);
       p.setLog({ ...p.log, errorChecks: p.log.errorChecks + 1 });
-    } else {
+    } else if (r.mode === "next") {
       setSt({ kind: "next", key: k, hints: r.hints, shown: 1 });
       p.onFocusLine(null);
       p.setLog({ ...p.log, level1: p.log.level1 + 1 });
@@ -91,6 +94,84 @@ export default function HintPanel(p: Props) {
       setSt({ kind: "fail", message: "네트워크 오류예요. 다시 눌러 주세요." });
     }
   };
+
+  const sendQuestion = async (e?: React.FormEvent, text?: string) => {
+    e?.preventDefault();
+    const q = (text ?? question).trim();
+    if (!q || qa.some((x) => x.a === null)) return;
+    setQuestion("");
+    const history = qa.filter((x) => x.a && !x.failed).slice(-3).map((x) => ({ q: x.q, a: x.a as string }));
+    setQa((list) => [...list, { q, a: null }]);
+    p.setLog({ ...p.log, questions: (p.log.questions ?? 0) + 1 });
+    let answer = "답을 받지 못했어요. 다시 물어봐 주세요.";
+    let failed = true;
+    try {
+      const r = await fetch("/api/hint", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ problem: p.problem, lines, firstWrong: p.firstWrong, question: q, history }),
+      });
+      const d = await r.json().catch(() => ({}));
+      if (r.ok && d.mode === "answer") {
+        answer = d.answer;
+        failed = false;
+      } else if (d.message) answer = d.message;
+    } catch {}
+    setQa((list) => list.map((x, i) => (i === list.length - 1 ? { q, a: answer, failed } : x)));
+  };
+
+  // 음성 질문: 말하는 동안 입력칸에 글자가 채워지고, 말이 끝나면 바로 질문을 보냄
+  const voice = useSpeech((text, final) => {
+    setQuestion(text);
+    if (final) void sendQuestion(undefined, text);
+  });
+
+  const askBox = (
+    <div className="ask">
+      {qa.length > 0 && (
+        <ul className="ask-list">
+          {qa.map((x, i) => (
+            <li key={i}>
+              <p className="ask-q">{x.q}</p>
+              <p className={`ask-a ${x.a === null ? "hint-loading" : ""} ${x.failed ? "failed" : ""}`}>
+                {x.a ?? "생각하는 중…"}
+                {x.a && !x.failed && (
+                  <button type="button" className="speak-btn" onClick={() => speak(x.a as string)} aria-label="답변 읽어주기">
+                    🔊
+                  </button>
+                )}
+              </p>
+            </li>
+          ))}
+        </ul>
+      )}
+      <form onSubmit={sendQuestion} className="ask-form">
+        <input
+          value={question}
+          onChange={(e) => setQuestion(e.target.value)}
+          maxLength={300}
+          placeholder={voice.listening ? "듣고 있어요… 말해 보세요" : "그래도 모르겠으면 직접 물어보세요"}
+          aria-label="직접 질문하기"
+          enterKeyHint="send"
+        />
+        {voice.supported && (
+          <button
+            type="button"
+            className={`mic-btn ${voice.listening ? "on" : ""}`}
+            onClick={voice.listening ? voice.stop : voice.start}
+            disabled={qa.some((x) => x.a === null)}
+            aria-label={voice.listening ? "음성 입력 멈추기" : "말로 질문하기"}
+          >
+            {voice.listening ? "■" : "🎤"}
+          </button>
+        )}
+        <button type="submit" className="primary" disabled={!question.trim() || qa.some((x) => x.a === null) || voice.listening}>
+          질문
+        </button>
+      </form>
+      {voice.error && <p className="hint-sub ask-err">{voice.error}</p>}
+    </div>
+  );
 
   const more = () => {
     if (st.kind !== "next" || st.shown >= 3) return;
@@ -133,6 +214,7 @@ export default function HintPanel(p: Props) {
                 </div>
                 <p className="hint-text">{st.message}</p>
                 <p className="hint-sub">그 줄을 고치면 자동으로 다시 검사해요.</p>
+                {askBox}
               </>
             ))}
           {st.kind === "next" && (
@@ -152,6 +234,7 @@ export default function HintPanel(p: Props) {
               ) : (
                 <p className="hint-sub">이제 직접 써 보세요!</p>
               )}
+              {askBox}
             </>
           )}
         </div>

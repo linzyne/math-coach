@@ -203,7 +203,11 @@ export default function SolveBoard({ problemId, problemLatex, nextId }: Props) {
         setLog={setHintLog}
         onFocusLine={setFocusLine}
       />
-      {hintTotal(hintLog) > 0 && !verify.solved && <div className="hint-count">힌트 {hintTotal(hintLog)}회</div>}
+      {(hintTotal(hintLog) > 0 || (hintLog.questions ?? 0) > 0) && !verify.solved && (
+        <div className="hint-count">
+          힌트 {hintTotal(hintLog)}회{(hintLog.questions ?? 0) > 0 ? ` · 질문 ${hintLog.questions}회` : ""}
+        </div>
+      )}
       {editing !== null && (
         <LineEditor
           line={editing}

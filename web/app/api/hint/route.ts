@@ -5,11 +5,13 @@ export const runtime = "nodejs";
 export const maxDuration = 60;
 
 type LineIn = { line: number; latex: string; status?: "ok" | "wrong" | "unparsed" };
-type Body = { problem: string; lines: LineIn[]; firstWrong: number | null };
+type QA = { q: string; a: string };
+type Body = { problem: string; lines: LineIn[]; firstWrong: number | null; question?: string; history?: QA[] };
 
 export type HintResponse =
   | { mode: "error"; line: number; mistakeType: string; message: string }
-  | { mode: "next"; hints: [string, string, string] };
+  | { mode: "next"; hints: [string, string, string] }
+  | { mode: "answer"; answer: string };
 
 const MISTAKE_TYPES = ["부호 실수", "이항 실수", "분배법칙 실수", "계산 실수", "분모 처리 실수", "소수 처리 실수", "식 옮겨 쓰기 실수", "기타"] as const;
 
@@ -49,6 +51,30 @@ ${fmtLines(b.lines)}
 - hint3 (그 줄 풀이): 바로 다음 한 줄의 식만 보여준다. 그 뒤의 단계나 최종 답까지 가지 않는다.
   (다음 한 줄이 곧 최종 답이라면 그 식을 보여줘도 된다.)`;
 }
+
+function askPrompt(b: Body, question: string) {
+  const past = (b.history ?? []).map((h) => `학생: ${h.q}\n코치: ${h.a}`).join("\n");
+  return `문제: ${b.problem}
+
+학생 풀이:
+${fmtLines(b.lines)}
+${b.firstWrong !== null ? `(자동 검사: ${b.firstWrong + 1}번 줄부터 틀림)` : "(자동 검사: 지금까지 틀린 줄 없음)"}
+${past ? `\n앞선 대화:\n${past}\n` : ""}
+학생의 질문: ${question}
+
+이 질문에 답해 줘. 규칙:
+- 개념(이항, 분배법칙, 등식의 성질, 분모 없애기 등)은 쉽게 설명해도 된다. 예시가 필요하면 이 문제와 다른 숫자로 든다.
+- 이 문제의 최종 답이나 남은 풀이 전체는 알려주지 않는다. 답을 바로 달라고 하면 부드럽게 거절하고, 스스로 생각해 볼 수 있는 질문이나 다음 행동 하나를 제안한다.
+- 수학이나 이 문제와 상관없는 질문이면 짧게 받아주고 문제로 돌아오게 한다.
+- 3문장 이내.`;
+}
+
+const ANSWER_SCHEMA = {
+  type: "object",
+  properties: { answer: { type: "string" } },
+  required: ["answer"],
+  additionalProperties: false,
+};
 
 const ERROR_SCHEMA = {
   type: "object",
@@ -107,11 +133,17 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "bad_request" }, { status: 400 });
   }
   if (typeof b?.problem !== "string" || !Array.isArray(b.lines) || b.lines.length > 40 || b.problem.length > 300 ||
-      b.lines.some((l) => typeof l.latex !== "string" || l.latex.length > 300)) {
+      b.lines.some((l) => typeof l.latex !== "string" || l.latex.length > 300) ||
+      (b.question !== undefined && (typeof b.question !== "string" || b.question.length > 300 || !b.question.trim())) ||
+      (b.history !== undefined && (!Array.isArray(b.history) || b.history.length > 6 ||
+        b.history.some((h) => typeof h?.q !== "string" || typeof h?.a !== "string" || h.q.length > 300 || h.a.length > 800)))) {
     return NextResponse.json({ error: "bad_request" }, { status: 400 });
   }
   const lines = [...b.lines].sort((x, y) => x.line - y.line);
-  const wrong = b.firstWrong !== null ? lines.find((l) => l.line === b.firstWrong) : undefined;
+  const question = b.question?.trim();
+  const wrong = !question && b.firstWrong !== null ? lines.find((l) => l.line === b.firstWrong) : undefined;
+  const schema = question ? ANSWER_SCHEMA : wrong ? ERROR_SCHEMA : NEXT_SCHEMA;
+  const prompt = question ? askPrompt({ ...b, lines }, question) : wrong ? errorPrompt({ ...b, lines }, wrong) : nextPrompt({ ...b, lines });
 
   // authToken: null → 다른 인증 환경변수가 있어도 API 키만 사용
   client ??= new Anthropic({ apiKey, authToken: null });
@@ -120,12 +152,12 @@ export async function POST(req: Request) {
       model: "claude-opus-5-5",
       max_tokens: 4000,
       // 힌트는 짧은 일이라 낮은 effort로 빠르고 저렴하게
-      output_config: { effort: "low", format: { type: "json_schema", schema: wrong ? ERROR_SCHEMA : NEXT_SCHEMA } },
+      output_config: { effort: "low", format: { type: "json_schema", schema } },
       // 안전 분류기가 거절하면 서버에서 추천 모델로 자동 재시도
       betas: ["server-side-fallback-2026-07-01"],
       fallbacks: "default",
       system: SYSTEM,
-      messages: [{ role: "user", content: wrong ? errorPrompt({ ...b, lines }, wrong) : nextPrompt({ ...b, lines }) }],
+      messages: [{ role: "user", content: prompt }],
     });
 
     if (res.stop_reason === "refusal" || res.stop_reason === "max_tokens") {
@@ -144,7 +176,9 @@ export async function POST(req: Request) {
         { status: 502 },
       );
     }
-    const out: HintResponse = wrong
+    const out: HintResponse = question
+      ? { mode: "answer", answer: data.answer }
+      : wrong
       ? { mode: "error", line: wrong.line, mistakeType: data.mistake_type, message: data.message }
       : { mode: "next", hints: [data.hint1, data.hint2, data.hint3] };
     return NextResponse.json(out);
