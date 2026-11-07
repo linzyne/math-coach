@@ -72,7 +72,7 @@ const en: Dict = {
   solLoading: "Making and checking the solution…", solFail: "Couldn't make an accurate solution. Please tap again.", solTry: "Try again", solTitle: "Solution",
   legendX: "x terms", legendXTail: " in blue", legendArrow: "Both sides of an arrow = the same operation on both sides", problem: "Problem", nextStep: "Next step",
   solAfter: "After reading, close this and write it out yourself. ✍️", readAll: "🔊 Read it to me", stopRead: "■ Stop", tapCard: "Tap a card to hear just that step",
-  kinds: { "괄호 풀기": "Expand brackets (괄호 풀기)", "분모 없애기": "Clear fractions (분모 없애기)", 이항: "Move terms (이항)", "동류항 정리": "Combine like terms (동류항 정리)", "양변 나누기": "Divide both sides (양변 나누기)", 약분: "Simplify (약분)", 기타: "Other" },
+  kinds: { "괄호 풀기": "Expand brackets", "분모 없애기": "Clear fractions", 이항: "Move terms", "동류항 정리": "Combine like terms", "양변 나누기": "Divide both sides", 약분: "Simplify", 기타: "Other" },
   sayProblem: "Problem.", sayAnswer: "Answer.", sayStep: (i: number) => `Step ${i}.`,
 };
 

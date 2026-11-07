@@ -19,21 +19,21 @@ export type SolutionStep = { latex: string; explain: string; kind?: (typeof STEP
 
 const MISTAKE_TYPES = ["부호 실수", "이항 실수", "분배법칙 실수", "계산 실수", "분모 처리 실수", "소수 처리 실수", "식 옮겨 쓰기 실수", "기타"] as const;
 const MISTAKE_TYPES_EN = [
-  "Sign error (부호 실수)",
-  "Moving terms error (이항 실수)",
-  "Expanding brackets error (분배법칙 실수)",
-  "Arithmetic error (계산 실수)",
-  "Fraction error (분모 처리 실수)",
-  "Decimal error (소수 처리 실수)",
-  "Copying error (식 옮겨 쓰기 실수)",
-  "Other (기타)",
+  "Sign error",
+  "Moving terms error",
+  "Expanding brackets error",
+  "Arithmetic error",
+  "Fraction error",
+  "Decimal error",
+  "Copying error",
+  "Other",
 ] as const;
 
 /** 영어 모드: 학생이 영어 모국어 화자 */
 const EN_RULE = `
-[언어] 학생은 영어가 모국어야. 학생에게 보이는 모든 문장(message, hint1~3, answer, explain)은 쉬운 영어로 쓴다.
-- 중요한 수학 용어는 한국 학교 수업을 따라갈 수 있게 처음 한 번은 한국어를 괄호로 붙인다. 예: move the term to the other side (이항), expand the brackets (괄호 풀기)
-- 말투는 짧고 따뜻하게. "Line 2"처럼 줄 번호를 말한다.`;
+[Language] The student's first language is English. Write every student-facing sentence (message, hint1~3, answer, explain) in simple, natural English only.
+- Never use Korean words or Korean in parentheses. Use standard English math terms (e.g. "move the term to the other side", "expand the brackets", "multiply both sides by 3").
+- Keep it short and warm. Refer to lines as "Line 2".`;
 
 const SYSTEM = `너는 중학생의 일차방정식 풀이를 돕는 다정한 수학 코치야.
 가장 중요한 원칙: 학생이 스스로 고치고 스스로 풀게 한다. 정답이나 고친 식을 먼저 알려주지 않는다.
