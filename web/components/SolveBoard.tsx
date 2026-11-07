@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useReducer, useRef, useState } from "react";
 import InkCanvas, { type Tool } from "./InkCanvas";
 import Toolbar from "./Toolbar";
+import LineChip from "./LineChip";
+import { useLineRecognition } from "@/lib/ink/useLineRecognition";
 import { emptyInk, groupByLine, inkReducer } from "@/lib/ink/history";
 import { LINE_HEIGHT, TOP_MARGIN } from "@/lib/ink/geometry";
 import type { Stroke } from "@/lib/ink/types";
@@ -40,6 +42,7 @@ export default function SolveBoard({ problemId }: { problemId: string }) {
   const byLine = useMemo(() => groupByLine(ink.strokes), [ink.strokes]);
   const maxLine = ink.strokes.reduce((m, s) => Math.max(m, s.line), -1);
   const lineCount = Math.max(MIN_LINES, maxLine + 4);
+  const { results, noKey, retry } = useLineRecognition(byLine, activeLine);
 
   return (
     <div className="board">
@@ -54,6 +57,9 @@ export default function SolveBoard({ problemId }: { problemId: string }) {
         allowTouch={allowTouch}
         setAllowTouch={setAllowTouch}
       />
+      {noKey && (
+        <div className="notice">Mathpix 키가 아직 설정되지 않아 글씨 인식을 건너뛰었어요. (Vercel → Settings → Environment Variables)</div>
+      )}
       <div className="sheet-scroll" ref={scrollRef}>
         <div className="sheet" style={{ ["--line-h" as string]: `${LINE_HEIGHT}px`, ["--top" as string]: `${TOP_MARGIN}px` }}>
           <div className="gutter" aria-hidden>
@@ -82,16 +88,21 @@ export default function SolveBoard({ problemId }: { problemId: string }) {
               scrollRef={scrollRef}
               onActiveLine={setActiveLine}
             />
+            <div className="rec-layer">
+                {/* 좁은 화면: 인식 결과를 줄 오른쪽 위에 겹쳐 표시 */}
+                {Array.from(results.entries()).map(([line, r]) => (
+                  <div key={line} className="rec-overlay" style={{ top: TOP_MARGIN + line * LINE_HEIGHT + 4 }}>
+                    <LineChip result={r} onRetry={() => retry(line)} />
+                  </div>
+                ))}
+            </div>
           </div>
           <div className="status-col" aria-live="polite">
-            {Array.from({ length: lineCount }, (_, i) => {
-              const n = byLine.get(i)?.length ?? 0;
-              return (
-                <div key={i} className="status-cell" style={{ height: LINE_HEIGHT }}>
-                  {n > 0 ? <span className="stroke-count">획 {n}</span> : null}
-                </div>
-              );
-            })}
+            {Array.from({ length: lineCount }, (_, i) => (
+              <div key={i} className="status-cell" style={{ height: LINE_HEIGHT }}>
+                <LineChip result={results.get(i)} onRetry={() => retry(i)} />
+              </div>
+            ))}
           </div>
         </div>
       </div>
