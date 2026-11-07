@@ -9,7 +9,19 @@ import { useEffect, useState } from "react";
 export default function ErrorReporter() {
   const [errors, setErrors] = useState<string[]>([]);
   useEffect(() => {
-    const add = (m: string) => setErrors((e) => (e.includes(m) ? e : [...e, m].slice(-3)));
+    const add = (m: string) => {
+      // 새 버전이 배포된 뒤 예전 페이지가 없어진 파일을 찾는 경우: 한 번만 자동 새로고침
+      if (/ChunkLoadError|Loading chunk|dynamically imported module|Importing a module script failed/i.test(m)) {
+        try {
+          if (!sessionStorage.getItem("reloadedForUpdate")) {
+            sessionStorage.setItem("reloadedForUpdate", "1");
+            location.reload();
+            return;
+          }
+        } catch {}
+      }
+      setErrors((e) => (e.includes(m) ? e : [...e, m].slice(-3)));
+    };
     const onError = (e: ErrorEvent) => add(`${e.message} @ ${(e.filename ?? "").split("/").pop()}:${e.lineno}`);
     const onRejection = (e: PromiseRejectionEvent) => add(`Promise: ${String(e.reason?.message ?? e.reason)}`);
     window.addEventListener("error", onError);
