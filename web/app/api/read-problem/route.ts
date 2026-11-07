@@ -49,7 +49,7 @@ export async function POST(req: Request) {
   client ??= new Anthropic({ apiKey, authToken: null });
   try {
     const res = await client.beta.messages.create({
-      model: "claude-opus-5-5",
+      model: "claude-sonnet-5-5",
       max_tokens: 4000,
       output_config: { effort: "low", format: { type: "json_schema", schema: SCHEMA } },
       betas: ["server-side-fallback-2026-07-01"],

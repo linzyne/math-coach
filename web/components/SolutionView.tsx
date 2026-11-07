@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { canSpeak, latexToSpeech, speakable, speakQueue, stopSpeaking } from "@/lib/useSpeech";
 import Tex from "./Tex";
 import MathText from "./MathText";
+import { cacheGet, cacheSet } from "@/lib/persistCache";
 import type { SolutionStep } from "@/app/api/hint/route";
 import { useLang, type Dict, type Lang } from "@/lib/i18n";
 
@@ -165,7 +166,7 @@ export default function SolutionView({ problem, kind, latex, onView }: ViewProps
   const cacheKey = `${lang}:${problem}`;
 
   const load = async () => {
-    const cached = solutionCache.get(cacheKey);
+    const cached = solutionCache.get(cacheKey) ?? cacheGet<Step[]>("sol:" + cacheKey);
     if (cached) {
       setSt({ kind: "show", steps: cached, open: true });
       onView();
@@ -186,6 +187,7 @@ export default function SolutionView({ problem, kind, latex, onView }: ViewProps
         }
         if (d.mode === "solution" && (await verified(kind, latex, d.steps))) {
           solutionCache.set(cacheKey, d.steps);
+          cacheSet("sol:" + cacheKey, d.steps);
           setSt({ kind: "show", steps: d.steps, open: true });
           onView();
           return;

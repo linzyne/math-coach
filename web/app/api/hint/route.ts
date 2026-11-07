@@ -272,24 +272,49 @@ export async function POST(req: Request) {
 
   // authToken: null → 다른 인증 환경변수가 있어도 API 키만 사용
   client ??= new Anthropic({ apiKey, authToken: null });
-  try {
-    const res = await client.beta.messages.create({
-      model: "claude-opus-5-5",
+  // 비용 절약: 짧은 힌트·질문은 Haiku 5.5, 정확도가 중요한 풀이 보기·증명 확인은 Sonnet 5.5
+  const heavy = solution || review;
+  const callSonnet = () =>
+    client!.beta.messages.create({
+      model: "claude-sonnet-5-5",
       max_tokens: 8000,
-      // 힌트는 짧은 일이라 낮은 effort, 풀이·증명 확인은 정확도가 중요해서 medium
-      output_config: { effort: solution || review ? "medium" : "low", format: { type: "json_schema", schema } },
+      output_config: { effort: heavy ? "medium" : "low", format: { type: "json_schema", schema } },
       // 안전 분류기가 거절하면 서버에서 추천 모델로 자동 재시도
       betas: ["server-side-fallback-2026-07-01"],
       fallbacks: "default",
       system,
       messages: [{ role: "user", content: prompt }],
     });
+  const callHaiku = () =>
+    client!.messages.create({
+      model: "claude-haiku-5-5",
+      max_tokens: 4000,
+      output_config: { effort: "low", format: { type: "json_schema", schema } },
+      system,
+      messages: [{ role: "user", content: prompt }],
+    });
+
+  try {
+    let res: { stop_reason: string | null; stop_details?: unknown; content: { type: string; text?: string }[] };
+    if (heavy) {
+      res = await callSonnet();
+    } else {
+      // Haiku는 서버 자동 대체가 없어서, 거절·오류·잘림이면 Sonnet으로 한 번 더
+      try {
+        res = await callHaiku();
+        if (res.stop_reason === "refusal" || res.stop_reason === "max_tokens") res = await callSonnet();
+      } catch (e) {
+        if (e instanceof Anthropic.AuthenticationError || e instanceof Anthropic.RateLimitError) throw e;
+        console.error("haiku failed, retrying with sonnet", e instanceof Anthropic.APIError ? e.status : e);
+        res = await callSonnet();
+      }
+    }
 
     if (res.stop_reason === "refusal" || res.stop_reason === "max_tokens") {
       console.error("hint stop_reason", res.stop_reason, res.stop_details);
       return NextResponse.json({ error: "no_hint", detail: res.stop_reason }, { status: 502 });
     }
-    const text = res.content.flatMap((c) => (c.type === "text" ? [c.text] : [])).join("");
+    const text = res.content.flatMap((c) => (c.type === "text" && c.text ? [c.text] : [])).join("");
     const data = parseJson(text);
     if (!data) {
       console.error("hint parse failed", res.content.map((c) => c.type), text.slice(0, 500));

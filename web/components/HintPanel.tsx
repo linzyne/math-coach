@@ -7,6 +7,7 @@ import type { HintLog } from "@/lib/hintLog";
 import { speak, speakable, useSpeech } from "@/lib/useSpeech";
 import SolutionView from "./SolutionView";
 import MathText from "./MathText";
+import { cacheGet, cacheSet } from "@/lib/persistCache";
 import { useLang } from "@/lib/i18n";
 
 type Props = {
@@ -89,7 +90,7 @@ export default function HintPanel(p: Props) {
 
   const ask = async () => {
     // 같은 풀이 상태면 이미 받은 힌트를 다시 사용 (API 호출 절약)
-    const cached = cache.current.get(key);
+    const cached = cache.current.get(key) ?? cacheGet<HintResponse>("hint:" + p.problem + key);
     if (cached) return show(cached, key);
     setSt({ kind: "loading" });
     try {
@@ -101,6 +102,7 @@ export default function HintPanel(p: Props) {
       const d = await r.json().catch(() => ({}));
       if (!r.ok) return setSt({ kind: "fail", message: errMsg(d) });
       cache.current.set(key, d as HintResponse);
+      cacheSet("hint:" + p.problem + key, d);
       show(d as HintResponse, key);
     } catch {
       setSt({ kind: "fail", message: t.netError });
