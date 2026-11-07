@@ -57,7 +57,14 @@ export default function HomeList() {
         </>
       )}
 
-      {UNITS.map((unit) => (
+      {custom.length === 0 && PROBLEMS.length === 0 && (
+        <div className="empty">
+          <p className="empty-icon">📷 📋</p>
+          <p>{t.emptyList}</p>
+        </div>
+      )}
+
+      {UNITS.filter((unit) => PROBLEMS.some((p) => p.unit === unit)).map((unit) => (
         <section key={unit}>
           <h2 className="section-title">{t.units[unit]}</h2>
           <ol className="plist">
