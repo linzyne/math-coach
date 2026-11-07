@@ -53,7 +53,7 @@ function stepSpeech(s: Step, i: number, last: boolean, t: Dict, lang: Lang) {
   // 영어 음성에는 괄호 속 한국어 용어를 빼고 읽음
   const kind = s.kind && s.kind !== "기타" ? t.kinds[s.kind]?.replace(/\s*\(.*\)$/, "") + "." : "";
   const head = last ? t.sayAnswer : `${t.sayStep(i + 1)} ${kind}`;
-  return `${head} ${latexToSpeech(s.latex, lang)}. ${s.explain}`;
+  return `${head} ${latexToSpeech(s.latex, lang)}. ${s.explain}${s.why ? ` ${t.sayWhy} ${s.why}` : ""}`;
 }
 
 function SolutionFlow({ problem, steps }: { problem: string; steps: Step[] }) {
@@ -61,6 +61,16 @@ function SolutionFlow({ problem, steps }: { problem: string; steps: Step[] }) {
   // 읽는 중인 위치: -1은 문제, 0부터는 단계
   const [reading, setReading] = useState<number | null>(null);
   const [voice, setVoice] = useState(false);
+  const [openWhy, setOpenWhy] = useState<Set<number>>(new Set());
+  const hasWhy = steps.some((s) => s.why);
+  const allOpen = hasWhy && steps.every((s, i) => !s.why || openWhy.has(i));
+  const toggleWhy = (i: number) =>
+    setOpenWhy((cur) => {
+      const n = new Set(cur);
+      if (n.has(i)) n.delete(i);
+      else n.add(i);
+      return n;
+    });
   useEffect(() => {
     setVoice(canSpeak());
     return () => stopSpeaking();
@@ -81,6 +91,11 @@ function SolutionFlow({ problem, steps }: { problem: string; steps: Step[] }) {
           )}
           <span className="hint-sub">{t.tapCard}</span>
         </div>
+      )}
+      {hasWhy && (
+        <button className="link why-all" onClick={() => setOpenWhy(allOpen ? new Set() : new Set(steps.map((_, i) => i)))}>
+          {allOpen ? t.collapseAll : t.expandAll}
+        </button>
       )}
     <ol className="flow">
       <li className={`flow-card flow-problem ${reading === -1 ? "reading" : ""}`} onClick={() => voice && readOne(-1)}>
@@ -104,6 +119,21 @@ function SolutionFlow({ problem, steps }: { problem: string; steps: Step[] }) {
               <span className="flow-num">{last ? "🎯" : i + 1}</span>
               <div className="flow-tex"><Tex tex={colorize(s.latex)} display /></div>
               <p className="flow-explain">{s.explain}</p>
+              {s.why && (
+                <>
+                  <button
+                    className="why-btn"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      toggleWhy(i);
+                    }}
+                    aria-expanded={openWhy.has(i)}
+                  >
+                    {openWhy.has(i) ? t.hideWhy : t.why}
+                  </button>
+                  {openWhy.has(i) && <p className="flow-why">{s.why}</p>}
+                </>
+              )}
             </div>
           </li>
         );

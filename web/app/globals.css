@@ -208,3 +208,9 @@ a { color: inherit; text-decoration: none; }
 .lang-toggle { flex: none; }
 .lang-toggle button { border: 0; background: transparent; padding: 8px 12px; border-radius: 8px; min-height: 40px; min-width: 44px; font-weight: 700; cursor: pointer; }
 .lang-toggle button.on { background: var(--paper); box-shadow: 0 1px 2px rgba(0,0,0,.12); color: var(--accent); }
+.why-all { font-weight: 700; padding: 4px 0; }
+.why-btn { border: 1px dashed var(--c, #c9c4b4); background: #fff; color: var(--c); border-radius: 999px; padding: 4px 12px;
+  font-size: 13px; font-weight: 700; margin: 4px 0 4px; cursor: pointer; min-height: 32px; }
+.flow-why { margin: 4px 0 6px; padding: 8px 10px; background: #fffbe6; border-left: 4px solid #f2c94c; border-radius: 8px;
+  font-size: 15px; line-height: 1.5; color: var(--ink); }
+.flow-num { top: 14px; transform: none; }

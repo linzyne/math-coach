@@ -15,7 +15,7 @@ export type HintResponse =
   | { mode: "solution"; steps: SolutionStep[] };
 
 export const STEP_KINDS = ["괄호 풀기", "분모 없애기", "이항", "동류항 정리", "양변 나누기", "약분", "기타"] as const;
-export type SolutionStep = { latex: string; explain: string; kind?: (typeof STEP_KINDS)[number]; op?: string };
+export type SolutionStep = { latex: string; explain: string; why?: string; kind?: (typeof STEP_KINDS)[number]; op?: string };
 
 const MISTAKE_TYPES = ["부호 실수", "이항 실수", "분배법칙 실수", "계산 실수", "분모 처리 실수", "소수 처리 실수", "식 옮겨 쓰기 실수", "기타"] as const;
 const MISTAKE_TYPES_EN = [
@@ -97,6 +97,7 @@ function solutionPrompt(b: Body) {
 - latex: 그 줄의 식을 LaTeX로. 등호는 하나만. 분수는 \\frac{}{} 사용.
 - explain: 그 줄에서 무엇을 했는지 한 문장 (예: "양변에서 5를 빼요.", "괄호를 풀어요.").
 - kind: 그 줄에서 한 동작의 종류 (언어와 상관없이 아래 한국어 값 중 하나). 괄호 풀기 / 분모 없애기(양변에 수를 곱함) / 이항(항을 반대편으로 옮김, 양변에 더하거나 뺌) / 동류항 정리 / 양변 나누기 / 약분 / 기타
+- why: 왜 이렇게 해도 되는지 / 왜 이렇게 하는지 개념을 1~2문장으로. 예: 등식의 성질(양변에 같은 수를 더하거나 빼거나 곱하거나 0이 아닌 수로 나눠도 등식은 그대로다, 저울 비유), 분배법칙, 이항하면 부호가 바뀌는 이유, 목표는 x만 한쪽에 남기는 것. 중학생이 이해할 수 있게 쉽게.
 - op: 양변에 한 연산을 짧게. 예: "×6", "−5", "+2x", "÷2". 양변 연산이 아니면 빈 문자열.
 - 한 줄에 한 가지 일만 한다. 보통 3~6줄.`;
 }
@@ -111,10 +112,11 @@ const SOLUTION_SCHEMA = {
         properties: {
           latex: { type: "string" },
           explain: { type: "string" },
+          why: { type: "string" },
           kind: { type: "string", enum: [...STEP_KINDS] },
           op: { type: "string" },
         },
-        required: ["latex", "explain", "kind", "op"],
+        required: ["latex", "explain", "why", "kind", "op"],
         additionalProperties: false,
       },
     },
