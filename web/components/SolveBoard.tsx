@@ -6,6 +6,8 @@ import InkCanvas, { type Tool } from "./InkCanvas";
 import Toolbar from "./Toolbar";
 import LineChip from "./LineChip";
 import LineEditor from "./LineEditor";
+import HintPanel from "./HintPanel";
+import { emptyHintLog, hintTotal, type HintLog } from "@/lib/hintLog";
 import { emptyInk, groupByLine, inkReducer } from "@/lib/ink/history";
 import { LINE_HEIGHT, TOP_MARGIN } from "@/lib/ink/geometry";
 import { useLineRecognition } from "@/lib/ink/useLineRecognition";
@@ -45,6 +47,8 @@ export default function SolveBoard({ problemId, problemLatex, nextId }: Props) {
   const [activeLine, setActiveLine] = useState<number | null>(null);
   const [editing, setEditing] = useState<number | null>(null);
   const [typed, setTyped] = usePersisted<Record<number, string>>(`typed:${problemId}`, {});
+  const [hintLog, setHintLog] = usePersisted<HintLog>(`hints:${problemId}`, emptyHintLog);
+  const [focusLine, setFocusLine] = useState<number | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const storageKey = `ink:${problemId}`;
   const loaded = useRef(false);
@@ -119,7 +123,9 @@ export default function SolveBoard({ problemId, problemLatex, nextId }: Props) {
       {verify.error && <div className="notice">{verify.error}</div>}
       {verify.solved && (
         <div className="praise" role="status">
-          <span>정답이에요! 스스로 끝까지 풀었어요 👏</span>
+          <span>
+            정답이에요! {hintTotal(hintLog) === 0 ? "힌트 없이 스스로 끝까지 풀었어요 👏" : `힌트 ${hintTotal(hintLog)}번으로 끝까지 풀었어요 👏`}
+          </span>
           {nextId ? (
             <Link href={`/solve/${nextId}`} className="primary">다음 문제 →</Link>
           ) : (
@@ -137,7 +143,7 @@ export default function SolveBoard({ problemId, problemLatex, nextId }: Props) {
                 <button
                   key={i}
                   type="button"
-                  className={`gutter-cell ${has ? "has-ink" : ""} ${activeLine === i ? "active" : ""}`}
+                  className={`gutter-cell ${has ? "has-ink" : ""} ${activeLine === i ? "active" : ""} ${focusLine === i ? "focus" : ""}`}
                   style={{ height: LINE_HEIGHT }}
                   onClick={() => setEditing(i)}
                   aria-label={`${i + 1}번 줄 키보드로 입력${st === "wrong" ? " (다시 확인해 보세요)" : ""}`}
@@ -150,6 +156,9 @@ export default function SolveBoard({ problemId, problemLatex, nextId }: Props) {
           </div>
           <div className="paper">
             <div className="lines" aria-hidden>
+              {focusLine !== null && (
+                <div className="focus-band" style={{ top: TOP_MARGIN + focusLine * LINE_HEIGHT, height: LINE_HEIGHT }} />
+              )}
               {activeLine !== null && (
                 <div className="active-band" style={{ top: TOP_MARGIN + activeLine * LINE_HEIGHT, height: LINE_HEIGHT }} />
               )}
@@ -183,6 +192,18 @@ export default function SolveBoard({ problemId, problemLatex, nextId }: Props) {
           </div>
         </div>
       </div>
+      <HintPanel
+        problem={problemLatex}
+        lineTexts={lineTexts}
+        statuses={verify.statuses}
+        firstWrong={verify.firstWrong}
+        checking={verify.checking}
+        solved={verify.solved}
+        log={hintLog}
+        setLog={setHintLog}
+        onFocusLine={setFocusLine}
+      />
+      {hintTotal(hintLog) > 0 && !verify.solved && <div className="hint-count">힌트 {hintTotal(hintLog)}회</div>}
       {editing !== null && (
         <LineEditor
           line={editing}

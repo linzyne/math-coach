@@ -12,6 +12,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^1.6.0",
     "katex": "^0.19.1",
     "next": "^16.4.5",
     "react": "^19.3.1",
