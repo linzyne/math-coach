@@ -83,7 +83,12 @@ export default function MathText({ text, className }: { text: string; className?
           const tex = part.slice(display ? 2 : 1, display ? -2 : -1);
           return <span key={i} dangerouslySetInnerHTML={{ __html: katex.renderToString(tex, { throwOnError: false, displayMode: display }) }} />;
         }
-        return <span key={i}>{part}</span>;
+        // **굵게** 표시만 지원 (Claude 설명에서 강조할 때)
+        return (
+          <span key={i}>
+            {part.split(/\*\*([^*]+)\*\*/g).map((seg, j) => (j % 2 ? <b key={j}>{seg}</b> : seg))}
+          </span>
+        );
       })}
     </span>
   );

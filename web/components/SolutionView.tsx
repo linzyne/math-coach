@@ -72,8 +72,32 @@ function stepSpeech(s: Step, i: number, last: boolean, t: Dict, lang: Lang) {
   return `${head} ${latexToSpeech(s.latex, lang)}. ${speakable(s.explain, lang)}${s.why ? ` ${t.sayWhy} ${speakable(s.why, lang)}` : ""}`;
 }
 
-function SolutionFlow({ problem, steps }: { problem: string; steps: Step[] }) {
+function SolutionFlow({ problem, kind, steps }: { problem: string; kind: "solve" | "free"; steps: Step[] }) {
   const { t, lang } = useLang();
+  // 💡 More: 누를 때만 Claude에게 그 단계를 깊게 설명받음 (받은 건 기기에 저장)
+  const [more, setMore] = useState<Record<number, { loading?: boolean; text?: string; error?: string }>>({});
+  const loadMore = async (i: number) => {
+    const key = `more:${lang}:${problem}:${i}:${steps[i].latex}`;
+    const cached = cacheGet<string>(key);
+    if (cached) return setMore((m) => ({ ...m, [i]: { text: cached } }));
+    setMore((m) => ({ ...m, [i]: { loading: true } }));
+    try {
+      const r = await fetch("/api/hint", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          problem, problemKind: kind, lines: [], firstWrong: null, lang,
+          explainStep: i, steps: steps.map((x) => ({ latex: x.latex, explain: x.explain })),
+        }),
+      });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok || d.mode !== "more") throw new Error(t.apiErrors[d.error ?? "unknown"] ?? t.hintFail);
+      cacheSet(key, d.more);
+      setMore((m) => ({ ...m, [i]: { text: d.more } }));
+    } catch (e) {
+      setMore((m) => ({ ...m, [i]: { error: (e as Error).message || t.netError } }));
+    }
+  };
   // 읽는 중인 위치: -1은 문제, 0부터는 단계
   const [reading, setReading] = useState<number | null>(null);
   const [voice, setVoice] = useState(false);
@@ -135,6 +159,11 @@ function SolutionFlow({ problem, steps }: { problem: string; steps: Step[] }) {
               <span className="flow-num">{last ? "🎯" : i + 1}</span>
               <div className="flow-tex"><Tex tex={colorize(s.latex)} /></div>
               <p className="flow-explain"><MathText text={s.explain} /></p>
+              {s.tip && (
+                <p className="flow-tip">
+                  <b>{t.examTip}</b> <MathText text={s.tip} />
+                </p>
+              )}
               {s.why && (
                 <>
                   <button
@@ -147,7 +176,30 @@ function SolutionFlow({ problem, steps }: { problem: string; steps: Step[] }) {
                   >
                     {openWhy.has(i) ? t.hideWhy : t.why}
                   </button>
-                  {openWhy.has(i) && <p className="flow-why"><MathText text={s.why} /></p>}
+                  {openWhy.has(i) && (
+                    <div className="flow-why">
+                      <MathText text={s.why} />
+                      {more[i]?.text ? (
+                        <div className="flow-more">
+                          {more[i].text!.split(/\n\s*\n/).map((para, k) => (
+                            <p key={k}><MathText text={para} /></p>
+                          ))}
+                        </div>
+                      ) : (
+                        <button
+                          className="more-btn"
+                          disabled={more[i]?.loading}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            void loadMore(i);
+                          }}
+                        >
+                          {more[i]?.loading ? t.moreLoading : t.moreBtn}
+                        </button>
+                      )}
+                      {more[i]?.error && <p className="hint-sub ask-err">{more[i].error}</p>}
+                    </div>
+                  )}
                 </>
               )}
             </div>
@@ -167,7 +219,7 @@ export default function SolutionView({ problem, kind, latex, onView }: ViewProps
   const cacheKey = `${lang}:${problem}`;
 
   const load = async () => {
-    const cached = solutionCache.get(cacheKey) ?? cacheGet<Step[]>("sol:" + cacheKey);
+    const cached = solutionCache.get(cacheKey) ?? cacheGet<Step[]>("sol2:" + cacheKey);
     if (cached) {
       setSt({ kind: "show", steps: cached, open: true });
       onView();
@@ -188,7 +240,7 @@ export default function SolutionView({ problem, kind, latex, onView }: ViewProps
         }
         if (d.mode === "solution" && (await verified(kind, latex, d.steps))) {
           solutionCache.set(cacheKey, d.steps);
-          cacheSet("sol:" + cacheKey, d.steps);
+          cacheSet("sol2:" + cacheKey, d.steps);
           setSt({ kind: "show", steps: d.steps, open: true });
           onView();
           return;
@@ -241,7 +293,7 @@ export default function SolutionView({ problem, kind, latex, onView }: ViewProps
               <span><b className="legend-x">{t.legendX}</b>{t.legendXTail}</span>
               <span>{t.legendArrow}</span>
             </div>
-            <SolutionFlow problem={problem} steps={st.steps} />
+            <SolutionFlow problem={problem} kind={kind} steps={st.steps} />
             <p className="hint-sub">{t.solAfter}</p>
           </div>
         </div>

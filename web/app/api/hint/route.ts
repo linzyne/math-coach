@@ -17,6 +17,9 @@ type Body = {
   solution?: boolean;
   /** ✓ 다 풀었어요: 풀이 전체 확인 */
   review?: boolean;
+  /** 풀이의 한 단계를 더 깊게 설명 (💡 More) */
+  explainStep?: number;
+  steps?: { latex: string; explain: string; why?: string }[];
   lang?: "en" | "ko";
 };
 
@@ -25,12 +28,13 @@ export type HintResponse =
   | { mode: "next"; hints: [string, string, string] }
   | { mode: "answer"; answer: string }
   | { mode: "solution"; steps: SolutionStep[] }
-  | { mode: "review"; correct: boolean; line: number | null; feedback: string };
+  | { mode: "review"; correct: boolean; line: number | null; feedback: string }
+  | { mode: "more"; more: string };
 
 const SOLVE_KINDS = ["괄호 풀기", "분모 없애기", "이항", "동류항 정리", "양변 나누기", "약분", "기타"] as const;
 const FREE_KINDS = ["기본 단계", "귀납 가정", "귀납 단계", "식 정리", "결론", "일반항", "지수 정리", "계수 계산", "전개", "방정식 풀기", "기타"] as const;
 export const STEP_KINDS = [...SOLVE_KINDS, ...FREE_KINDS.filter((k) => k !== "기타")] as const;
-export type SolutionStep = { latex: string; explain: string; why?: string; kind?: string; op?: string };
+export type SolutionStep = { latex: string; explain: string; why?: string; tip?: string; kind?: string; op?: string };
 
 const MISTAKES = {
   solve: {
@@ -45,7 +49,7 @@ const MISTAKES = {
 
 /** 영어 모드: 학생이 영어 모국어 화자 */
 const EN_RULE = `
-[Language] The student's first language is English. Write every student-facing sentence (message, hint1~3, answer, explain, why, feedback) in simple, natural English only.
+[Language] The student's first language is English. Write every student-facing sentence (message, hint1~3, answer, explain, why, tip, more, feedback) in simple, natural English only.
 - Never use Korean words or Korean in parentheses. Use standard English math terms.
 - Keep it short and warm. Refer to lines as "Line 2".`;
 
@@ -121,7 +125,13 @@ function solutionPrompt(b: Body, free: boolean) {
 - latex: 그 줄의 식을 LaTeX로 ($ 없이). 등호는 하나만. 분수는 \\frac{}{} 사용.
 - explain: 그 줄에서 무엇을 했는지 한 문장 (예: "양변에서 5를 빼요.").
 - kind: 그 줄에서 한 동작의 종류 (언어와 상관없이 아래 한국어 값 중 하나). 괄호 풀기 / 분모 없애기(양변에 수를 곱함) / 이항(항을 반대편으로 옮김, 양변에 더하거나 뺌) / 동류항 정리 / 양변 나누기 / 약분 / 기타
-- why: 왜 이렇게 해도 되는지 / 왜 이렇게 하는지 개념을 1~2문장으로 (등식의 성질과 저울 비유, 분배법칙, 이항하면 부호가 바뀌는 이유, 목표는 x만 남기기 등). 중학생이 이해할 수 있게.
+- why: 이 단계의 '왜'를 설명한다. explain(무엇을 했는지)을 다시 말하지 않는다. 다음 중 이 단계에 가장 중요한 것 하나를 1~2문장으로:
+  · 왜 하필 이렇게 하는지 (목표에서 거꾸로 생각한 이유) / 안 하면 무엇이 막히는지
+  · 왜 이렇게 해도 되는지 (어떤 성질·규칙 때문인지)
+  · 학생들이 이 단계에서 흔히 하는 오해나 실수
+  같은 비유나 같은 말을 여러 단계에서 반복하지 않는다. 숫자 계산만 하는 당연한 단계는 빈 문자열("")로 둔다. 수식은 $...$ 로 감싼다.
+  (참고할 개념: 등식의 성질과 저울, 분배법칙, 이항하면 부호가 바뀌는 이유, 목표는 x만 남기기. 중학생 눈높이로.)
+- tip: 빈 문자열.
 - op: 양변에 한 연산을 짧게. 예: "×6", "−5", "+2x", "÷2". 양변 연산이 아니면 빈 문자열.
 - 한 줄에 한 가지 일만 한다. 보통 3~6줄.`;
   }
@@ -134,10 +144,37 @@ IB AA HL 모범 답안처럼 처음부터 끝까지 풀어 줘.
   · 합은 \\sum_{r=1}^{k}, 이항계수는 \\binom{n}{r}, 분수는 \\frac{}{} 사용.
 - explain: 그 줄에서 무엇을 했는지 한 문장. 문장 속 수식은 반드시 $...$ 로 감싼다 (예: "Write $3^{k+1}$ as $3 \\cdot 3^k$.").
 - kind: 그 줄의 역할 (언어와 상관없이 아래 한국어 값 중 하나). 기본 단계 / 귀납 가정 / 귀납 단계 / 식 정리 / 결론 / 일반항 / 지수 정리 / 계수 계산 / 전개 / 방정식 풀기 / 기타
-- why: 왜 이 단계가 필요한지 / 왜 이렇게 해도 되는지 개념을 1~2문장으로 (예: 도미노 비유, 가정을 써야 하는 이유, 일반항의 지수를 맞추는 이유). 수식은 $...$ 로 감싼다.
+- why: 이 단계의 '왜'를 설명한다. explain(무엇을 했는지)을 다시 말하지 않는다. 다음 중 이 단계에 가장 중요한 것 하나를 1~2문장으로:
+  · 왜 하필 이렇게 하는지 (목표에서 거꾸로 생각한 이유) / 안 하면 무엇이 막히는지
+  · 왜 이렇게 해도 되는지 (어떤 성질·규칙 때문인지)
+  · 학생들이 이 단계에서 흔히 하는 오해나 실수
+  같은 비유나 같은 말을 여러 단계에서 반복하지 않는다. 숫자 계산만 하는 당연한 단계는 빈 문자열("")로 둔다. 수식은 $...$ 로 감싼다.
+  (귀납법에서 꼭 짚을 것: 가정 단계에서는 "P(k)가 참이라고 주장하는 게 아니라 'P(k)이면 P(k+1)'이라는 연결을 증명하는 것이라 순환논리가 아니다"; 부등식 증명에서는 부등식을 이어 붙이는 논리(A > B > C 이므로 A > C); n ≥ 10 같은 조건이 실제로 어디서 필요한지(대개 기본 단계); 귀납 단계에서 가정을 정확히 어디서 썼는지.)
+- tip: IB 채점에서 점수가 걸린 단계에만 짧은 시험 팁 한 문장 (예: 결론 문장을 빠뜨리면 마지막 점수를 잃는다, 가정을 쓴 곳을 'by the assumption'으로 표시하라, 기본 단계는 LHS와 RHS를 따로 계산해 보여라). 그 밖의 단계는 빈 문자열.
 - op: 빈 문자열.
 - 보통 5~9줄.`;
 }
+
+function morePrompt(b: Body, idx: number) {
+  const steps = (b.steps ?? []).map((s, i) => `${i + 1}. ${s.latex}  — ${s.explain}`).join("\n");
+  return `문제: ${b.problem}
+
+모범 풀이:
+${steps}
+
+학생이 ${idx + 1}번 단계를 더 자세히 알고 싶어 해요. 이 단계를 깊게 설명해 줘.
+- 왜 이 단계가 필요한지, 왜 이렇게 해도 되는지 (근거가 되는 성질·논리).
+- 학생들이 여기서 흔히 헷갈리는 점 하나와 그 오해를 푸는 설명.
+- 이 문제와 다른 숫자로 든 짧은 예시나 반례 하나.
+- 3~6문장. 수식은 $...$ 로 감싼다. 문단을 나눌 때는 빈 줄을 쓴다.`;
+}
+
+const MORE_SCHEMA = {
+  type: "object",
+  properties: { more: { type: "string" } },
+  required: ["more"],
+  additionalProperties: false,
+};
 
 function reviewPrompt(b: Body) {
   return `문제: ${b.problem}
@@ -162,10 +199,11 @@ const solutionSchema = (free: boolean) => ({
           latex: { type: "string" },
           explain: { type: "string" },
           why: { type: "string" },
+          tip: { type: "string" },
           kind: { type: "string", enum: free ? [...FREE_KINDS] : [...SOLVE_KINDS] },
           op: { type: "string" },
         },
-        required: ["latex", "explain", "why", "kind", "op"],
+        required: ["latex", "explain", "why", "tip", "kind", "op"],
         additionalProperties: false,
       },
     },
@@ -244,6 +282,7 @@ export async function POST(req: Request) {
       b.lines.some((l) => typeof l.latex !== "string" || l.latex.length > 500) ||
       (b.lang !== undefined && b.lang !== "en" && b.lang !== "ko") ||
       (b.problemKind !== undefined && b.problemKind !== "solve" && b.problemKind !== "free") ||
+      (b.steps !== undefined && (!Array.isArray(b.steps) || b.steps.length > 20 || b.steps.some((x) => typeof x?.latex !== "string" || x.latex.length > 600 || typeof x?.explain !== "string" || x.explain.length > 600))) ||
       (b.question !== undefined && (typeof b.question !== "string" || b.question.length > 300 || !b.question.trim())) ||
       (b.history !== undefined && (!Array.isArray(b.history) || b.history.length > 6 ||
         b.history.some((h) => typeof h?.q !== "string" || typeof h?.a !== "string" || h.q.length > 300 || h.a.length > 800)))) {
@@ -256,10 +295,13 @@ export async function POST(req: Request) {
   const question = b.question?.trim();
   const solution = b.solution === true;
   const review = b.review === true && !solution && !question;
+  const more = typeof b.explainStep === "number" && Array.isArray(b.steps) && b.explainStep >= 0 && b.explainStep < b.steps.length && b.steps.length <= 20;
   const wrong = !question && !solution && !review && b.firstWrong !== null ? lines.find((l) => l.line === b.firstWrong) : undefined;
 
-  const schema = solution ? solutionSchema(free) : review ? REVIEW_SCHEMA : question ? ANSWER_SCHEMA : wrong ? errorSchema(free, en) : NEXT_SCHEMA;
-  const prompt = solution
+  const schema = more ? MORE_SCHEMA : solution ? solutionSchema(free) : review ? REVIEW_SCHEMA : question ? ANSWER_SCHEMA : wrong ? errorSchema(free, en) : NEXT_SCHEMA;
+  const prompt = more
+    ? morePrompt(body, b.explainStep as number)
+    : solution
     ? solutionPrompt(body, free)
     : review
     ? reviewPrompt(body)
@@ -273,12 +315,12 @@ export async function POST(req: Request) {
   // authToken: null → 다른 인증 환경변수가 있어도 API 키만 사용
   client ??= new Anthropic({ apiKey, authToken: null });
   // 비용 절약: 짧은 힌트·질문은 Haiku 5.5, 정확도가 중요한 풀이 보기·증명 확인은 Sonnet 5.5
-  const heavy = solution || review;
+  const heavy = solution || review || more;
   const callSonnet = () =>
     client!.beta.messages.create({
       model: "claude-sonnet-5-5",
       max_tokens: 8000,
-      output_config: { effort: heavy ? "medium" : "low", format: { type: "json_schema", schema } },
+      output_config: { effort: (solution || review) ? "medium" : "low", format: { type: "json_schema", schema } },
       // 안전 분류기가 거절하면 서버에서 추천 모델로 자동 재시도
       betas: ["server-side-fallback-2026-07-01"],
       fallbacks: "default",
@@ -323,7 +365,9 @@ export async function POST(req: Request) {
     if (solution && (!Array.isArray(data.steps) || data.steps.length === 0)) {
       return NextResponse.json({ error: "parse" }, { status: 502 });
     }
-    const out: HintResponse = solution
+    const out: HintResponse = more
+      ? { mode: "more", more: data.more }
+      : solution
       ? { mode: "solution", steps: data.steps }
       : review
       ? { mode: "review", correct: !!data.correct, line: data.line > 0 ? data.line - 1 : null, feedback: data.feedback }

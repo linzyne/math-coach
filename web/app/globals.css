@@ -273,3 +273,11 @@ math-field::part(menu-toggle) { display: none; }
 /* 풀이 카드: 긴 줄은 잘리지 않고 줄바꿈 */
 .flow-tex { font-size: 21px; line-height: 1.7; padding: 4px 0; overflow-x: visible; }
 .flow-tex .katex { white-space: normal; }
+
+/* Why 더 자세히, 시험 팁 */
+.more-btn { display: inline-block; margin-top: 6px; border: 0; background: none; color: #b07d00; font-weight: 700; font-size: 14px; padding: 4px 0; cursor: pointer; }
+.more-btn:disabled { opacity: .6; }
+.flow-more { margin-top: 8px; padding-top: 8px; border-top: 1px dashed #ecd9a0; }
+.flow-more p { margin: 0 0 6px; }
+.flow-tip { margin: 2px 0 4px; font-size: 14px; background: #fff; border: 1px solid #f0d58a; color: #7a5a17; border-radius: 8px; padding: 6px 10px; }
+.flow-tip b { color: #b07d00; }
