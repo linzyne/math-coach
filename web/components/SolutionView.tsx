@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { canSpeak, latexToSpeech, speakQueue, stopSpeaking } from "@/lib/useSpeech";
 import Tex from "./Tex";
 import type { SolutionStep } from "@/app/api/hint/route";
 
@@ -47,10 +48,38 @@ async function verified(problem: string, steps: Step[]): Promise<boolean> {
   }
 }
 
+function stepSpeech(s: Step, i: number, last: boolean) {
+  const head = last ? "답." : `${i + 1}단계. ${s.kind && s.kind !== "기타" ? s.kind + "." : ""}`;
+  return `${head} ${latexToSpeech(s.latex)}. ${s.explain}`;
+}
+
 function SolutionFlow({ problem, steps }: { problem: string; steps: Step[] }) {
+  // 읽는 중인 위치: -1은 문제, 0부터는 단계
+  const [reading, setReading] = useState<number | null>(null);
+  const [voice, setVoice] = useState(false);
+  useEffect(() => {
+    setVoice(canSpeak());
+    return () => stopSpeaking();
+  }, []);
+
+  const texts = [`문제. ${latexToSpeech(problem)}`, ...steps.map((s, i) => stepSpeech(s, i, i === steps.length - 1))];
+  const readAll = () => speakQueue(texts, (i) => setReading(i === null ? null : i - 1));
+  const readOne = (idx: number) => speakQueue([texts[idx + 1]], (i) => setReading(i === null ? null : idx));
+
   return (
+    <>
+      {voice && (
+        <div className="read-bar">
+          {reading === null ? (
+            <button className="primary" onClick={readAll}>🔊 처음부터 읽어주기</button>
+          ) : (
+            <button className="ghost" onClick={() => { stopSpeaking(); setReading(null); }}>■ 그만 읽기</button>
+          )}
+          <span className="hint-sub">카드를 누르면 그 단계만 읽어줘요</span>
+        </div>
+      )}
     <ol className="flow">
-      <li className="flow-card flow-problem">
+      <li className={`flow-card flow-problem ${reading === -1 ? "reading" : ""}`} onClick={() => voice && readOne(-1)}>
         <span className="flow-tag">문제</span>
         <div className="flow-tex"><Tex tex={colorize(problem)} display /></div>
       </li>
@@ -67,7 +96,7 @@ function SolutionFlow({ problem, steps }: { problem: string; steps: Step[] }) {
               </span>
               {s.op ? <span className="flow-op right">{s.op}</span> : <span className="flow-op-spacer" />}
             </div>
-            <div className={`flow-card ${last ? "flow-final" : ""}`}>
+            <div className={`flow-card ${last ? "flow-final" : ""} ${reading === i ? "reading" : ""}`} onClick={() => voice && readOne(i)}>
               <span className="flow-num">{last ? "🎯" : i + 1}</span>
               <div className="flow-tex"><Tex tex={colorize(s.latex)} display /></div>
               <p className="flow-explain">{s.explain}</p>
@@ -76,6 +105,7 @@ function SolutionFlow({ problem, steps }: { problem: string; steps: Step[] }) {
         );
       })}
     </ol>
+    </>
   );
 }
 

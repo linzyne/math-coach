@@ -200,3 +200,7 @@ a { color: inherit; text-decoration: none; }
 .flow-op { justify-self: center; font-size: 18px; font-weight: 800; color: #fff; background: var(--c); padding: 3px 12px; border-radius: 10px; min-width: 52px; text-align: center; }
 .flow-op.left { justify-self: end; }
 .flow-op.right { justify-self: start; }
+.read-bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.flow-card { cursor: pointer; transition: transform .2s, box-shadow .2s; }
+.flow-card.reading { transform: scale(1.03); box-shadow: 0 0 0 4px var(--c, #d9d4c4), 0 8px 24px rgba(0,0,0,.12); }
+.flow-problem.reading { box-shadow: 0 0 0 4px #d9d4c4, 0 8px 24px rgba(0,0,0,.12); }
