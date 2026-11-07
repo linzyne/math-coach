@@ -5,7 +5,7 @@ import { createContext, useContext, useEffect, useState } from "react";
 export type Lang = "en" | "ko";
 
 const ko = {
-  appTitle: "일차방정식 풀이 연습",
+  appTitle: "Math",
   appSub: "문제를 고르고 애플펜슬로 한 줄씩 풀어 보세요.",
   back: "← 목록",
   problemNo: (n: number) => `문제 ${n}`,
@@ -49,13 +49,14 @@ const ko = {
   reasons: { parse: "식을 읽을 수 없어요", not_linear: "아직 일차방정식만 지원해요", no_unique: "해가 하나가 아니에요", not_equation: "부등식·증명 문제는 아직 지원하지 않아요 (일차방정식만)" } as Record<string, string>,
   backStep: "← 뒤로",
   addN: (n: number) => `${n}문제 추가`, added: (n: number) => `${n}문제를 추가했어요`,
+  mathKbHelp: "아래 수식 키보드로 입력하세요. 분수·Σ·nCr 버튼을 누르면 칸이 생겨요.", useRaw: "LaTeX로 직접 입력", useMathKb: "수식 키보드로 입력",
   why: "💡 왜?", hideWhy: "접기", expandAll: "💡 모두 펼치기", collapseAll: "모두 접기", sayWhy: "왜냐하면,",
 };
 
 export type Dict = typeof ko;
 
 const en: Dict = {
-  appTitle: "Linear Equations Practice",
+  appTitle: "Math",
   appSub: "Pick a problem and solve it one line at a time with your Apple Pencil.",
   back: "← List",
   problemNo: (n: number) => `Problem ${n}`,
@@ -99,6 +100,7 @@ const en: Dict = {
   reasons: { parse: "Can't read this equation", not_linear: "Only linear equations for now", no_unique: "Doesn't have exactly one solution", not_equation: "Inequalities and proofs aren't supported yet (linear equations only)" },
   backStep: "← Back",
   addN: (n: number) => `Add ${n} problem${n === 1 ? "" : "s"}`, added: (n: number) => `Added ${n} problem${n === 1 ? "" : "s"}`,
+  mathKbHelp: "Use the maths keyboard below. Fraction, Σ and nCr keys add boxes to fill in.", useRaw: "Type LaTeX instead", useMathKb: "Use maths keyboard",
   why: "💡 Why?", hideWhy: "Hide", expandAll: "💡 Show all whys", collapseAll: "Hide all", sayWhy: "Why?",
 };
 

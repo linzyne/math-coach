@@ -258,3 +258,9 @@ a { color: inherit; text-decoration: none; }
 
 .empty { text-align: center; color: var(--muted); padding: 40px 16px; border: 2px dashed #e2ddcf; border-radius: 16px; margin-top: 8px; }
 .empty-icon { font-size: 32px; margin: 0 0 8px; }
+
+/* 수식 키보드 입력칸 */
+.math-input { display: block; width: 100%; font-size: 24px; padding: 10px 12px; border: 1px solid #d6d1c2; border-radius: 10px; background: #fff; min-height: 56px; }
+.math-input.loading { color: var(--muted); }
+math-field::part(menu-toggle) { display: none; }
+.raw-toggle { font-size: 13px; align-self: flex-start; }

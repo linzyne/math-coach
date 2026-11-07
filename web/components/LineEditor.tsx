@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Tex from "./Tex";
+import MathInput from "./MathInput";
 import { useLang } from "@/lib/i18n";
 
 type Props = {
@@ -16,6 +17,7 @@ type Props = {
 export default function LineEditor({ line, initial, recognized, onSave, onClose }: Props) {
   const { t } = useLang();
   const [text, setText] = useState(initial);
+  const [raw, setRaw] = useState(false);
   const ref = useRef<HTMLInputElement>(null);
   useEffect(() => ref.current?.focus(), []);
 
@@ -30,18 +32,30 @@ export default function LineEditor({ line, initial, recognized, onSave, onClose 
         }}
       >
         <h2>{t.lineInput(line + 1)}</h2>
-        <p className="modal-help">{t.example} <code>4x-8=2x+6</code>, <code>x/3=3</code>, <code>\frac{"{x}{3}"}=3</code></p>
-        <input
-          ref={ref}
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          autoCapitalize="off"
-          autoCorrect="off"
-          spellCheck={false}
-          enterKeyHint="done"
-          placeholder={t.linePlaceholder}
-        />
-        <div className="modal-preview">{text.trim() ? <Tex tex={text} /> : <span className="muted">{t.preview}</span>}</div>
+        {raw ? (
+          <>
+            <p className="modal-help">{t.example} <code>4x-8=2x+6</code>, <code>x/3=3</code>, <code>\frac{"{x}{3}"}=3</code></p>
+            <input
+              ref={ref}
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+              autoCapitalize="off"
+              autoCorrect="off"
+              spellCheck={false}
+              enterKeyHint="done"
+              placeholder={t.linePlaceholder}
+            />
+            <div className="modal-preview">{text.trim() ? <Tex tex={text} /> : <span className="muted">{t.preview}</span>}</div>
+          </>
+        ) : (
+          <>
+            <p className="modal-help">{t.mathKbHelp}</p>
+            <MathInput value={text} onChange={setText} onSubmit={() => onSave(text.trim() ? text.trim() : null)} autoFocus />
+          </>
+        )}
+        <button type="button" className="link raw-toggle" onClick={() => setRaw(!raw)}>
+          {raw ? t.useMathKb : t.useRaw}
+        </button>
         {recognized && recognized !== text && (
           <button type="button" className="link" onClick={() => setText(recognized)}>
             {t.useRecognized} <Tex tex={recognized} />
