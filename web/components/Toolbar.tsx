@@ -11,6 +11,8 @@ type Props = {
   onUndo: () => void;
   onRedo: () => void;
   onClear: () => void;
+  calcOpen: boolean;
+  onCalc: () => void;
   allowTouch: boolean;
   setAllowTouch: (v: boolean) => void;
 };
@@ -32,6 +34,9 @@ export default function Toolbar(p: Props) {
         <button onClick={p.onRedo} disabled={!p.canRedo} aria-label={t.redo}>{t.redo}</button>
       </div>
       <button className="ghost" onClick={p.onClear}>{t.clearAll}</button>
+      <button className={`ghost calc-btn ${p.calcOpen ? "on" : ""}`} onClick={p.onCalc} aria-pressed={p.calcOpen}>
+        {t.calc}
+      </button>
       <label className="touch-toggle">
         <input type="checkbox" checked={p.allowTouch} onChange={(e) => p.setAllowTouch(e.target.checked)} />
         {t.fingerDraw}

@@ -51,6 +51,7 @@ const ko = {
   addN: (n: number) => `${n}문제 추가`, added: (n: number) => `${n}문제를 추가했어요`,
   mathKbHelp: "아래 수식 키보드로 입력하세요. 분수·Σ·nCr 버튼을 누르면 칸이 생겨요.", useRaw: "LaTeX로 직접 입력", useMathKb: "수식 키보드로 입력",
   moreBtn: "더 자세히 ▸", moreLoading: "자세한 설명을 만드는 중…", examTip: "📝 시험 팁",
+  calc: "🧮 계산기", calcMin: "접기", calcOpen: "펼치기", calcUse: "이 값 넣기", calcError: "식을 확인해 주세요", calcToDec: "→ 소수", calcToFrac: "→ 분수",
   why: "💡 왜?", hideWhy: "접기", expandAll: "💡 모두 펼치기", collapseAll: "모두 접기", sayWhy: "왜냐하면,",
 };
 
@@ -103,6 +104,7 @@ const en: Dict = {
   addN: (n: number) => `Add ${n} problem${n === 1 ? "" : "s"}`, added: (n: number) => `Added ${n} problem${n === 1 ? "" : "s"}`,
   mathKbHelp: "Use the maths keyboard below. Fraction, Σ and nCr keys add boxes to fill in.", useRaw: "Type LaTeX instead", useMathKb: "Use maths keyboard",
   moreBtn: "Explain more ▸", moreLoading: "Writing a deeper explanation…", examTip: "📝 Exam tip:",
+  calc: "🧮 Calculator", calcMin: "Minimise", calcOpen: "Expand", calcUse: "Use this value", calcError: "Check the expression", calcToDec: "→ decimal", calcToFrac: "→ fraction",
   why: "💡 Why?", hideWhy: "Hide", expandAll: "💡 Show all whys", collapseAll: "Hide all", sayWhy: "Why?",
 };
 

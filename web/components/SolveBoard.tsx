@@ -7,6 +7,7 @@ import Toolbar from "./Toolbar";
 import LineChip from "./LineChip";
 import LineEditor from "./LineEditor";
 import HintPanel from "./HintPanel";
+import Calculator from "./Calculator";
 import { emptyHintLog, hintTotal, type HintLog } from "@/lib/hintLog";
 import { useLang } from "@/lib/i18n";
 import { emptyInk, groupByLine, inkReducer } from "@/lib/ink/history";
@@ -50,6 +51,7 @@ export default function SolveBoard({ problemId, problem, nextId, nextHref }: Pro
   const [allowTouch, setAllowTouch] = useState(false);
   const [activeLine, setActiveLine] = useState<number | null>(null);
   const [editing, setEditing] = useState<number | null>(null);
+  const [calcOpen, setCalcOpen] = useState(false);
   const [typed, setTyped] = usePersisted<Record<number, string>>(`typed:${problemId}`, {});
   const [hintLog, setHintLog] = usePersisted<HintLog>(`hints:${problemId}`, emptyHintLog);
   const [focusLine, setFocusLine] = useState<number | null>(null);
@@ -122,6 +124,8 @@ export default function SolveBoard({ problemId, problem, nextId, nextHref }: Pro
         }}
         allowTouch={allowTouch}
         setAllowTouch={setAllowTouch}
+        calcOpen={calcOpen}
+        onCalc={() => setCalcOpen((v) => !v)}
       />
       {noKey && Object.keys(typed).length === 0 && (
         <div className="notice">
@@ -225,6 +229,7 @@ export default function SolveBoard({ problemId, problem, nextId, nextHref }: Pro
           {t.hintCount(hintTotal(hintLog), hintLog.questions ?? 0, (hintLog.solutionViews ?? 0) > 0)}
         </div>
       )}
+      {calcOpen && <Calculator onClose={() => setCalcOpen(false)} />}
       {editing !== null && (
         <LineEditor
           line={editing}
