@@ -133,7 +133,7 @@ function SolutionFlow({ problem, steps }: { problem: string; steps: Step[] }) {
             </div>
             <div className={`flow-card ${last ? "flow-final" : ""} ${reading === i ? "reading" : ""}`} onClick={() => voice && readOne(i)}>
               <span className="flow-num">{last ? "🎯" : i + 1}</span>
-              <div className="flow-tex"><Tex tex={colorize(s.latex)} display /></div>
+              <div className="flow-tex"><Tex tex={colorize(s.latex)} /></div>
               <p className="flow-explain"><MathText text={s.explain} /></p>
               {s.why && (
                 <>

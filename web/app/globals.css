@@ -269,3 +269,7 @@ math-field::part(menu-toggle) { display: none; }
   padding: 10px 12px; border-radius: 10px; font-size: 13px; word-break: break-word; }
 .error-ua { opacity: .75; font-size: 11px; margin-top: 4px; }
 .error-pre { white-space: pre-wrap; background: #fdecea; color: #b3261e; padding: 12px; border-radius: 10px; font-size: 13px; }
+
+/* 풀이 카드: 긴 줄은 잘리지 않고 줄바꿈 */
+.flow-tex { font-size: 21px; line-height: 1.7; padding: 4px 0; overflow-x: visible; }
+.flow-tex .katex { white-space: normal; }
