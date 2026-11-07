@@ -2,12 +2,35 @@
 
 import { useState } from "react";
 import Tex from "./Tex";
+import type { SolutionStep } from "@/app/api/hint/route";
 
-type Step = { latex: string; explain: string };
-type State = { kind: "idle" } | { kind: "confirm" } | { kind: "loading" } | { kind: "fail"; message: string } | { kind: "show"; steps: Step[] };
+type Step = SolutionStep;
+type State =
+  | { kind: "idle" }
+  | { kind: "confirm" }
+  | { kind: "loading" }
+  | { kind: "fail"; message: string }
+  | { kind: "show"; steps: Step[]; open: boolean };
 
 // 같은 문제의 풀이는 다시 만들지 않음 (창을 닫았다 열어도 유지)
 const solutionCache = new Map<string, Step[]>();
+
+/** 동작 종류별 색과 아이콘 */
+const KIND_STYLE: Record<string, { color: string; bg: string; icon: string }> = {
+  "괄호 풀기": { color: "#7048e8", bg: "#f1ecff", icon: "🔓" },
+  "분모 없애기": { color: "#0c8f80", bg: "#e3f7f4", icon: "✖️" },
+  이항: { color: "#d9480f", bg: "#fff0e6", icon: "↔️" },
+  "동류항 정리": { color: "#1c64d6", bg: "#e7f0ff", icon: "🧮" },
+  "양변 나누기": { color: "#c2255c", bg: "#ffe8f0", icon: "➗" },
+  약분: { color: "#5c7cfa", bg: "#edf2ff", icon: "✂️" },
+  기타: { color: "#6b6a60", bg: "#f1efe8", icon: "✏️" },
+};
+const styleOf = (k?: string) => KIND_STYLE[k ?? "기타"] ?? KIND_STYLE["기타"];
+
+/** x가 들어간 항을 파란색으로 (\max 같은 명령어 안의 x는 제외) */
+function colorize(latex: string): string {
+  return latex.replace(/(?<![\\a-zA-Z])((?:\d+(?:\.\d+)?)?\s*x)(?![a-zA-Z])/g, "\\textcolor{#1c64d6}{$1}");
+}
 
 /** Claude가 만든 풀이를 SymPy로 한 줄씩 검사해서 모두 맞을 때만 사용 */
 async function verified(problem: string, steps: Step[]): Promise<boolean> {
@@ -24,13 +47,45 @@ async function verified(problem: string, steps: Step[]): Promise<boolean> {
   }
 }
 
+function SolutionFlow({ problem, steps }: { problem: string; steps: Step[] }) {
+  return (
+    <ol className="flow">
+      <li className="flow-card flow-problem">
+        <span className="flow-tag">문제</span>
+        <div className="flow-tex"><Tex tex={colorize(problem)} display /></div>
+      </li>
+      {steps.map((s, i) => {
+        const st = styleOf(s.kind);
+        const last = i === steps.length - 1;
+        return (
+          <li key={i} className="flow-item" style={{ ["--c" as string]: st.color, ["--bg" as string]: st.bg }}>
+            <div className="flow-arrow" aria-hidden>
+              {s.op ? <span className="flow-op left">{s.op}</span> : <span className="flow-op-spacer" />}
+              <span className="flow-arrow-line">
+                <span className="flow-kind">{st.icon} {s.kind ?? "다음 단계"}</span>
+                <svg width="22" height="30" viewBox="0 0 22 30"><path d="M11 0 V24 M3 17 L11 26 L19 17" stroke="currentColor" strokeWidth="3" fill="none" strokeLinecap="round" strokeLinejoin="round" /></svg>
+              </span>
+              {s.op ? <span className="flow-op right">{s.op}</span> : <span className="flow-op-spacer" />}
+            </div>
+            <div className={`flow-card ${last ? "flow-final" : ""}`}>
+              <span className="flow-num">{last ? "🎯" : i + 1}</span>
+              <div className="flow-tex"><Tex tex={colorize(s.latex)} display /></div>
+              <p className="flow-explain">{s.explain}</p>
+            </div>
+          </li>
+        );
+      })}
+    </ol>
+  );
+}
+
 export default function SolutionView({ problem, onView }: { problem: string; onView: () => void }) {
   const [st, setSt] = useState<State>({ kind: "idle" });
 
   const load = async () => {
     const cached = solutionCache.get(problem);
     if (cached) {
-      setSt({ kind: "show", steps: cached });
+      setSt({ kind: "show", steps: cached, open: true });
       onView();
       return;
     }
@@ -49,7 +104,7 @@ export default function SolutionView({ problem, onView }: { problem: string; onV
         }
         if (d.mode === "solution" && (await verified(problem, d.steps))) {
           solutionCache.set(problem, d.steps);
-          setSt({ kind: "show", steps: d.steps });
+          setSt({ kind: "show", steps: d.steps, open: true });
           onView();
           return;
         }
@@ -86,21 +141,26 @@ export default function SolutionView({ problem, onView }: { problem: string; onV
       </div>
     );
   return (
-    <div className="solution-box">
-      <div className="hint-lv">정답 풀이</div>
-      <ol className="solution-steps">
-        <li>
-          <Tex tex={problem} />
-          <span className="solution-explain">문제</span>
-        </li>
-        {st.steps.map((s, i) => (
-          <li key={i}>
-            <Tex tex={s.latex} />
-            <span className="solution-explain">{s.explain}</span>
-          </li>
-        ))}
-      </ol>
-      <p className="hint-sub">풀이를 본 뒤에는 화면을 가리고 직접 다시 써 보세요.</p>
-    </div>
+    <>
+      <button className="link solution-open" onClick={() => setSt({ ...st, open: true })}>
+        📖 풀이 다시 보기
+      </button>
+      {st.open && (
+        <div className="modal-bg solution-bg" onClick={() => setSt({ ...st, open: false })}>
+          <div className="modal solution-modal" onClick={(e) => e.stopPropagation()} role="dialog" aria-label="정답 풀이">
+            <div className="solution-head">
+              <h2>정답 풀이</h2>
+              <button className="hint-close" onClick={() => setSt({ ...st, open: false })} aria-label="닫기">✕</button>
+            </div>
+            <div className="legend">
+              <span><b className="legend-x">x 항</b> 파란색</span>
+              <span>화살표 양옆 = 양변에 똑같이 한 계산</span>
+            </div>
+            <SolutionFlow problem={problem} steps={st.steps} />
+            <p className="hint-sub">풀이를 본 뒤에는 창을 닫고 직접 다시 써 보세요. ✍️</p>
+          </div>
+        </div>
+      )}
+    </>
   );
 }

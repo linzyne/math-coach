@@ -12,7 +12,10 @@ export type HintResponse =
   | { mode: "error"; line: number; mistakeType: string; message: string }
   | { mode: "next"; hints: [string, string, string] }
   | { mode: "answer"; answer: string }
-  | { mode: "solution"; steps: { latex: string; explain: string }[] };
+  | { mode: "solution"; steps: SolutionStep[] };
+
+export const STEP_KINDS = ["괄호 풀기", "분모 없애기", "이항", "동류항 정리", "양변 나누기", "약분", "기타"] as const;
+export type SolutionStep = { latex: string; explain: string; kind?: (typeof STEP_KINDS)[number]; op?: string };
 
 const MISTAKE_TYPES = ["부호 실수", "이항 실수", "분배법칙 실수", "계산 실수", "분모 처리 실수", "소수 처리 실수", "식 옮겨 쓰기 실수", "기타"] as const;
 
@@ -77,6 +80,8 @@ function solutionPrompt(b: Body) {
 - steps의 각 항목은 한 줄(한 단계)의 식이다. 첫 줄은 문제를 변형한 첫 단계부터 시작하고, 마지막 줄은 반드시 'x = 값' 꼴로 끝낸다.
 - latex: 그 줄의 식을 LaTeX로. 등호는 하나만. 분수는 \\frac{}{} 사용.
 - explain: 그 줄에서 무엇을 했는지 한 문장 (예: "양변에서 5를 빼요.", "괄호를 풀어요.").
+- kind: 그 줄에서 한 동작의 종류. 괄호 풀기 / 분모 없애기(양변에 수를 곱함) / 이항(항을 반대편으로 옮김, 양변에 더하거나 뺌) / 동류항 정리 / 양변 나누기 / 약분 / 기타
+- op: 양변에 한 연산을 짧게. 예: "×6", "−5", "+2x", "÷2". 양변 연산이 아니면 빈 문자열.
 - 한 줄에 한 가지 일만 한다. 보통 3~6줄.`;
 }
 
@@ -87,8 +92,13 @@ const SOLUTION_SCHEMA = {
       type: "array",
       items: {
         type: "object",
-        properties: { latex: { type: "string" }, explain: { type: "string" } },
-        required: ["latex", "explain"],
+        properties: {
+          latex: { type: "string" },
+          explain: { type: "string" },
+          kind: { type: "string", enum: [...STEP_KINDS] },
+          op: { type: "string" },
+        },
+        required: ["latex", "explain", "kind", "op"],
         additionalProperties: false,
       },
     },
