@@ -11,11 +11,13 @@ export default async function SolvePage({ params }: { params: Promise<{ id: stri
   const { id } = await params;
   const problem = getProblem(id);
   if (!problem) notFound();
-  const idx = PROBLEMS.findIndex((p) => p.id === id);
+  // 같은 단원 안에서 번호와 다음 문제
+  const unit = PROBLEMS.filter((p) => p.unit === problem.unit);
+  const idx = unit.findIndex((p) => p.id === id);
   return (
     <main className="solve">
-      <SolveHeader no={idx + 1} latex={problem.latex} />
-      <SolveBoard problemId={problem.id} problemLatex={problem.latex} nextId={PROBLEMS[idx + 1]?.id ?? null} />
+      <SolveHeader no={idx + 1} statement={problem.statement} kind={problem.kind} />
+      <SolveBoard problemId={problem.id} problem={problem} nextId={unit[idx + 1]?.id ?? null} />
     </main>
   );
 }

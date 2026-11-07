@@ -1,17 +1,18 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import Tex from "./Tex";
+import MathText from "./MathText";
 import { useLang } from "@/lib/i18n";
 import { addCustom, imageToBase64, parsePasted } from "@/lib/customProblems";
 
-type Item = { latex: string; status: "checking" | "ok" | "bad"; reason?: string; solution?: string; selected: boolean };
+/** latex 칸 = 화면에 보이는 문제 글(수식은 $…$) / eq = 방정식 풀기 문제면 그 방정식 */
+type Item = { latex: string; status: "checking" | "ok" | "bad"; reason?: string; solution?: string; kind?: "solve" | "free"; eq?: string; selected: boolean };
 
-async function check(latex: string): Promise<Pick<Item, "status" | "reason" | "solution">> {
+async function check(latex: string): Promise<Pick<Item, "status" | "reason" | "solution" | "kind" | "eq">> {
   try {
-    const r = await fetch("/api/py/check", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ latex }) });
+    const r = await fetch("/api/py/classify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ latex }) });
     const d = await r.json();
-    return d.ok ? { status: "ok", solution: d.solution } : { status: "bad", reason: d.reason ?? "parse" };
+    return d.ok ? { status: "ok", solution: d.solution, kind: d.kind, eq: d.latex ?? undefined } : { status: "bad", reason: d.reason ?? "parse" };
   } catch {
     return { status: "bad", reason: "parse" };
   }
@@ -183,10 +184,10 @@ export default function AddProblem({ onClose, onAdded }: { onClose: () => void; 
                     />
                   </label>
                   <div className="review-body">
-                    <div className="review-tex"><Tex tex={it.latex} /></div>
-                    <input value={it.latex} onChange={(e) => edit(i, e.target.value)} autoCapitalize="off" autoCorrect="off" spellCheck={false} />
+                    <div className="review-tex"><MathText text={it.latex} /></div>
+                    <textarea value={it.latex} rows={Math.min(4, Math.ceil(it.latex.length / 50) || 1)} onChange={(e) => edit(i, e.target.value)} autoCapitalize="off" autoCorrect="off" spellCheck={false} />
                     <span className="review-status">
-                      {it.status === "checking" ? t.checking : it.status === "ok" ? `✓ ${t.okSol}` : `⚠ ${t.reasons[it.reason ?? "parse"]}`}
+                      {it.status === "checking" ? t.checking : it.status === "ok" ? `✓ ${it.kind === "free" ? t.okFree : t.okSol}` : `⚠ ${t.reasons[it.reason ?? "parse"]}`}
                     </span>
                   </div>
                 </li>
@@ -199,7 +200,7 @@ export default function AddProblem({ onClose, onAdded }: { onClose: () => void; 
                 className="primary"
                 disabled={chosen.length === 0}
                 onClick={() => {
-                  addCustom(chosen.map((c) => c.latex));
+                  addCustom(chosen.map((c) => ({ statement: c.latex, kind: c.kind ?? "free", latex: c.eq })));
                   onAdded(chosen.length);
                 }}
               >

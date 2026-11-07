@@ -1,4 +1,18 @@
-export type CustomProblem = { id: string; latex: string; createdAt: number };
+import type { ProblemLike } from "./problems";
+
+/** latex: 방정식 풀기 문제 / statement: 글+$수식$ 문제 (증명 등). 예전 저장분은 latex만 있음 */
+export type CustomProblem = { id: string; latex?: string; statement?: string; kind?: "solve" | "free"; createdAt: number };
+export type NewProblem = { statement: string; kind: "solve" | "free"; latex?: string };
+
+export function toProblem(c: CustomProblem): ProblemLike {
+  const kind = c.kind ?? "solve";
+  return {
+    statement: c.statement ?? "$" + (c.latex ?? "") + "$",
+    kind,
+    latex: c.latex,
+    answerType: kind === "free" ? "other" : undefined,
+  };
+}
 
 const KEY = "customProblems";
 
@@ -17,9 +31,9 @@ function save(list: CustomProblem[]) {
   } catch {}
 }
 
-export function addCustom(latexList: string[]): CustomProblem[] {
+export function addCustom(list: NewProblem[]): CustomProblem[] {
   const now = Date.now();
-  const added = latexList.map((latex, i) => ({ id: `c${now.toString(36)}${i}`, latex, createdAt: now }));
+  const added = list.map((p, i) => ({ id: "c" + now.toString(36) + i, ...p, createdAt: now }));
   save([...loadCustom(), ...added]);
   return added;
 }
@@ -31,8 +45,20 @@ export function removeCustom(id: string) {
   } catch {}
 }
 
-/** 붙여넣은 글에서 한 줄에 하나씩 방정식만 골라냄 (번호·기호 제거) */
+/** 붙여넣은 글 → 문제 목록. 줄마다 짧은 방정식이면 한 줄에 하나씩, 아니면 글 전체를 문제 하나로 */
 export function parsePasted(text: string): string[] {
+  const eqs = splitEquations(text);
+  const lines = text.split(/\r?\n/).filter((l) => l.trim());
+  const allShortEquations =
+    eqs.length > 0 &&
+    eqs.length === lines.length &&
+    lines.every((l) => l.length < 80 && !/[a-zA-Z]{4,}/.test(l.replace(/\\[a-zA-Z]+/g, "")));
+  if (allShortEquations) return eqs.map((e) => "$" + e + "$");
+  const whole = text.trim().replace(/^(\(?\s*(\d{1,3}|[a-zA-Z])\s*[).:])\s*/, "");
+  return whole ? [whole] : [];
+}
+
+function splitEquations(text: string): string[] {
   return text
     .split(/\r?\n|;/)
     .map((l) =>

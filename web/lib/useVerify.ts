@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import type { ProblemLike } from "./problems";
 
 export type LineStatus = "ok" | "wrong" | "unparsed";
 export type VerifyState = {
@@ -14,7 +15,8 @@ export type VerifyState = {
 const initial: VerifyState = { statuses: new Map(), firstWrong: null, solved: false, checking: false, error: null };
 
 /** 줄 텍스트가 바뀌면 0.5초 뒤 SymPy 서버로 전체 줄을 검사 (무료, AI 미사용) */
-export function useVerify(problem: string, lineTexts: Map<number, string>): VerifyState {
+export function useVerify(problem: ProblemLike, lineTexts: Map<number, string>): VerifyState {
+  const free = problem.kind === "free";
   const [state, setState] = useState<VerifyState>(initial);
   const key = JSON.stringify([...lineTexts.entries()].sort((a, b) => a[0] - b[0]));
 
@@ -27,10 +29,13 @@ export function useVerify(problem: string, lineTexts: Map<number, string>): Veri
     const ctrl = new AbortController();
     const t = setTimeout(() => {
       setState((s) => ({ ...s, checking: true }));
-      fetch("/api/py/verify", {
+      // solve: 처음 문제와 해가 같은지 / free: 줄마다 등식이 참인지 (증명·이항정리)
+      fetch(free ? "/api/py/check-lines" : "/api/py/verify", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ problem, lines }),
+        body: JSON.stringify(
+          free ? { lines, answer_type: problem.answerType ?? null, answer: problem.answer ?? null } : { problem: problem.latex, lines },
+        ),
         signal: ctrl.signal,
       })
         .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
@@ -52,7 +57,7 @@ export function useVerify(problem: string, lineTexts: Map<number, string>): Veri
       clearTimeout(t);
       ctrl.abort();
     };
-  }, [problem, key]);
+  }, [free, problem.latex, problem.answerType, problem.answer, key]);
 
   return state;
 }

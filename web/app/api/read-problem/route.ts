@@ -15,12 +15,14 @@ const SCHEMA = {
   additionalProperties: false,
 };
 
-const PROMPT = `This is a photo of a math worksheet or textbook page.
-Find every equation the student is asked to solve and return each one as LaTeX in "problems", in the order they appear.
-- Only the equation itself (e.g. "3x + 5 = 20", "\\\\frac{x+1}{2} = \\\\frac{x-2}{3} + 2"). No problem numbers, no instructions, no answers.
-- Copy the equation exactly as printed. Do not simplify or solve it.
-- Ignore handwritten working, answers and anything that is not an equation to solve.
-- If there is no equation, return an empty list.`;
+const PROMPT = `This is a photo or screenshot of a math worksheet, textbook page or exam question.
+Find every separate question the student is asked to do and return each one in "problems", in the order they appear.
+- If a question is just an equation to solve (e.g. "Solve 3x + 5 = 20"), return only the equation wrapped in $...$, e.g. "$3x + 5 = 20$".
+- Otherwise (proofs, "find the coefficient…", "expand…", word problems), return the full question text in English with all maths written as LaTeX inside $...$, e.g. "Prove by mathematical induction that $\\\\sum_{r=1}^{n} r = \\\\frac{n(n+1)}{2}$ for all $n \\\\in \\\\mathbb{Z}^+$."
+- Copy exactly what is printed. Do not simplify, solve or add hints. Leave out question numbers and mark allocations like [4].
+- Treat sub-parts (a), (b)… as separate questions, keeping any shared information they need.
+- Ignore handwritten working and answers.
+- If there is no question, return an empty list.`;
 
 function readApiKey(): string | null {
   const m = (process.env.ANTHROPIC_API_KEY ?? "").match(/sk-ant-[A-Za-z0-9_-]+/);
@@ -69,7 +71,7 @@ export async function POST(req: Request) {
     let problems: string[] = [];
     try {
       const d = JSON.parse(text);
-      if (Array.isArray(d.problems)) problems = d.problems.filter((x: unknown) => typeof x === "string").slice(0, 30);
+      if (Array.isArray(d.problems)) problems = d.problems.filter((x: unknown) => typeof x === "string" && x.length <= 1500).slice(0, 30);
     } catch {
       return NextResponse.json({ error: "parse" }, { status: 502 });
     }

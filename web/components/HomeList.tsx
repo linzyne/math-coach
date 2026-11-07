@@ -2,11 +2,11 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import Tex from "./Tex";
+import MathText from "./MathText";
 import AddProblem from "./AddProblem";
-import { PROBLEMS } from "@/lib/problems";
+import { PROBLEMS, UNITS } from "@/lib/problems";
 import { LangToggle, useLang } from "@/lib/i18n";
-import { loadCustom, removeCustom, type CustomProblem } from "@/lib/customProblems";
+import { loadCustom, removeCustom, toProblem, type CustomProblem } from "@/lib/customProblems";
 
 export default function HomeList() {
   const { t } = useLang();
@@ -34,18 +34,18 @@ export default function HomeList() {
         <>
           <h2 className="section-title">{t.myProblems}</h2>
           <ol className="plist">
-            {custom.map((p, i) => (
-              <li key={p.id} className="pcard-row">
-                <Link href={`/solve/custom?id=${p.id}`} className="pcard">
+            {custom.map((c, i) => (
+              <li key={c.id} className="pcard-row">
+                <Link href={`/solve/custom?id=${c.id}`} className="pcard">
                   <span className="pnum mine">{i + 1}</span>
-                  <span className="ptex"><Tex tex={p.latex} /></span>
+                  <MathText text={toProblem(c).statement} className="ptex" />
                 </Link>
                 <button
                   className="pdel"
                   aria-label={t.del}
                   onClick={() => {
                     if (!confirm(t.delConfirm)) return;
-                    removeCustom(p.id);
+                    removeCustom(c.id);
                     setCustom(loadCustom());
                   }}
                 >
@@ -54,21 +54,25 @@ export default function HomeList() {
               </li>
             ))}
           </ol>
-          <h2 className="section-title">{t.samples}</h2>
         </>
       )}
 
-      <ol className="plist">
-        {PROBLEMS.map((p, i) => (
-          <li key={p.id}>
-            <Link href={`/solve/${p.id}`} className="pcard">
-              <span className="pnum">{i + 1}</span>
-              <span className="ptex"><Tex tex={p.latex} /></span>
-              <span className={`plevel l${p.level}`}>{t.levels[p.title]}</span>
-            </Link>
-          </li>
-        ))}
-      </ol>
+      {UNITS.map((unit) => (
+        <section key={unit}>
+          <h2 className="section-title">{t.units[unit]}</h2>
+          <ol className="plist">
+            {PROBLEMS.filter((p) => p.unit === unit).map((p, i) => (
+              <li key={p.id}>
+                <Link href={`/solve/${p.id}`} className={`pcard ${p.kind === "free" ? "free" : ""}`}>
+                  <span className="pnum">{i + 1}</span>
+                  <MathText text={p.statement} className="ptex" />
+                  <span className={`plevel l${p.level}`}>{t.levels[p.title]}</span>
+                </Link>
+              </li>
+            ))}
+          </ol>
+        </section>
+      ))}
 
       {adding && (
         <AddProblem

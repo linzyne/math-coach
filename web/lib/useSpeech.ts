@@ -90,7 +90,7 @@ export function latexToSpeech(src: string, lang: Lang): string {
     lang === "en"
       ? { frac: (a: string, b: string) => ` ${a} over ${b} `, times: " times ", div: " divided by ", open: " open bracket ", close: " close bracket ", eq: " equals ", plus: " plus ", minus: " minus ", x: " x " }
       : { frac: (a: string, b: string) => ` ${b}분의 ${a} `, times: " 곱하기 ", div: " 나누기 ", open: " 괄호 ", close: " 괄호 닫고 ", eq: " 은 ", plus: " 더하기 ", minus: " 빼기 ", x: "엑스" };
-  let s = src.replace(/\\textcolor\{[^}]*\}/g, "");
+  let s = src.replace(/\\textcolor\{[^}]*\}/g, "").replace(/\\binom\{([^{}]*)\}\{([^{}]*)\}/g, lang === "en" ? " $1 choose $2 " : " $1 C $2 ").replace(/\\sum_\{([^{}]*)\}\^\{?([^{}\s]*)\}?/g, lang === "en" ? " the sum from $1 to $2 of " : " $1 부터 $2 까지의 합 ");
   for (let i = 0; i < 5; i++) s = s.replace(/\\[dt]?frac\{([^{}]*)\}\{([^{}]*)\}/g, (_, a, b) => W.frac(a, b));
   s = s
     .replace(/\\left|\\right/g, "")
@@ -105,6 +105,11 @@ export function latexToSpeech(src: string, lang: Lang): string {
     .replace(/(?<![a-zA-Z\\])x(?![a-zA-Z])/g, W.x)
     .replace(/\\[a-zA-Z]+/g, " ");
   return s.replace(/\s+/g, " ").trim();
+}
+
+/** 글 속 $수식$ 부분만 말로 바꿈 */
+export function speakable(text: string, lang: Lang): string {
+  return text.replace(/\$+([^$]+)\$+/g, (_, m) => " " + latexToSpeech(m, lang) + " ");
 }
 
 let queueToken = 0;

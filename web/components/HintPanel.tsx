@@ -4,12 +4,19 @@ import { useEffect, useRef, useState } from "react";
 import type { HintResponse } from "@/app/api/hint/route";
 import type { LineStatus } from "@/lib/useVerify";
 import type { HintLog } from "@/lib/hintLog";
-import { speak, useSpeech } from "@/lib/useSpeech";
+import { speak, speakable, useSpeech } from "@/lib/useSpeech";
 import SolutionView from "./SolutionView";
+import MathText from "./MathText";
 import { useLang } from "@/lib/i18n";
 
 type Props = {
   problem: string;
+  kind: "solve" | "free";
+  answerType?: string;
+  /** free 문제에서 Claude가 풀이 전체를 맞다고 확인함 */
+  onReviewedOk: () => void;
+  /** solve 문제의 방정식 (풀이 검증용) */
+  latex?: string;
   lineTexts: Map<number, string>;
   statuses: Map<number, LineStatus>;
   firstWrong: number | null;
@@ -26,7 +33,8 @@ type State =
   | { kind: "loading" }
   | { kind: "fail"; message: string }
   | { kind: "error"; key: string; line: number; mistakeType: string; message: string; fixed: boolean }
-  | { kind: "next"; key: string; hints: [string, string, string]; shown: number };
+  | { kind: "next"; key: string; hints: [string, string, string]; shown: number }
+  | { kind: "review"; correct: boolean; feedback: string; line: number | null };
 
 
 export default function HintPanel(p: Props) {
@@ -88,7 +96,7 @@ export default function HintPanel(p: Props) {
       const r = await fetch("/api/hint", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ problem: p.problem, lines, firstWrong: p.firstWrong, lang }),
+        body: JSON.stringify({ problem: p.problem, problemKind: p.kind, lines, firstWrong: p.firstWrong, lang }),
       });
       const d = await r.json().catch(() => ({}));
       if (!r.ok) return setSt({ kind: "fail", message: errMsg(d) });
@@ -113,7 +121,7 @@ export default function HintPanel(p: Props) {
       const r = await fetch("/api/hint", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ problem: p.problem, lines, firstWrong: p.firstWrong, question: q, history, lang }),
+        body: JSON.stringify({ problem: p.problem, problemKind: p.kind, lines, firstWrong: p.firstWrong, question: q, history, lang }),
       });
       const d = await r.json().catch(() => ({}));
       if (r.ok && d.mode === "answer") {
@@ -131,7 +139,7 @@ export default function HintPanel(p: Props) {
   }, lang);
 
   const solutionBox = (
-    <SolutionView problem={p.problem} onView={() => p.setLog({ ...p.log, solutionViews: (p.log.solutionViews ?? 0) + 1 })} />
+    <SolutionView problem={p.problem} kind={p.kind} latex={p.latex} onView={() => p.setLog({ ...p.log, solutionViews: (p.log.solutionViews ?? 0) + 1 })} />
   );
 
   const askBox = (
@@ -142,9 +150,9 @@ export default function HintPanel(p: Props) {
             <li key={i}>
               <p className="ask-q">{x.q}</p>
               <p className={`ask-a ${x.a === null ? "hint-loading" : ""} ${x.failed ? "failed" : ""}`}>
-                {x.a ?? t.answering}
+                {x.a ? <MathText text={x.a} /> : t.answering}
                 {x.a && !x.failed && (
-                  <button type="button" className="speak-btn" onClick={() => speak(x.a as string, lang)} aria-label={t.readAnswer}>
+                  <button type="button" className="speak-btn" onClick={() => speak(speakable(x.a as string, lang), lang)} aria-label={t.readAnswer}>
                     🔊
                   </button>
                 )}
@@ -181,6 +189,25 @@ export default function HintPanel(p: Props) {
     </div>
   );
 
+  // ✓ 다 풀었어요: Claude가 풀이 전체(증명 포함)를 확인
+  const review = async () => {
+    setSt({ kind: "loading" });
+    try {
+      const r = await fetch("/api/hint", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ problem: p.problem, problemKind: p.kind, lines, firstWrong: p.firstWrong, review: true, lang }),
+      });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok || d.mode !== "review") return setSt({ kind: "fail", message: errMsg(d) });
+      setSt({ kind: "review", correct: d.correct, feedback: d.feedback, line: d.line ?? null });
+      p.onFocusLine(d.correct ? null : d.line ?? null);
+      if (d.correct) p.onReviewedOk();
+    } catch {
+      setSt({ kind: "fail", message: t.netError });
+    }
+  };
+
   const more = () => {
     if (st.kind !== "next" || st.shown >= 3) return;
     const lvl = st.shown + 1;
@@ -198,14 +225,30 @@ export default function HintPanel(p: Props) {
   return (
     <>
       {st.kind === "closed" && (
-        <button className="help-fab" onClick={ask} disabled={p.checking} aria-label={t.help}>
-          {t.help}
-        </button>
+        <div className="fab-stack">
+          {p.kind === "free" && lines.length > 0 && (
+            <button className="check-fab" onClick={review} disabled={p.checking}>
+              {t.checkWork}
+            </button>
+          )}
+          <button className="help-fab" onClick={ask} disabled={p.checking} aria-label={t.help}>
+            {t.help}
+          </button>
+        </div>
       )}
       {st.kind !== "closed" && (
         <div className="hint-sheet" role="dialog" aria-label={t.help}>
           <button className="hint-close" onClick={close} aria-label={t.close}>✕</button>
           {st.kind === "loading" && <p className="hint-loading">{t.thinking}</p>}
+          {st.kind === "review" && (
+            <>
+              <p className={st.correct ? "hint-fixed" : "hint-tag"}>{st.correct ? t.workCorrect : t.workNotYet}</p>
+              {!st.correct && st.line !== null && <div className="hint-tag"><b>{t.lookAgain(st.line + 1)}</b></div>}
+              <p className="hint-text"><MathText text={st.feedback} /></p>
+              {!st.correct && solutionBox}
+              {!st.correct && askBox}
+            </>
+          )}
           {st.kind === "fail" && (
             <>
               <p>{st.message}</p>
@@ -220,7 +263,7 @@ export default function HintPanel(p: Props) {
                 <div className="hint-tag">
                   <b>{t.lookAgain(st.line + 1)}</b>{t.lookAgainTail} · <span>{st.mistakeType}</span>
                 </div>
-                <p className="hint-text">{st.message}</p>
+                <p className="hint-text"><MathText text={st.message} /></p>
                 <p className="hint-sub">{t.autoRecheck}</p>
                 {solutionBox}
                 {askBox}
@@ -232,7 +275,7 @@ export default function HintPanel(p: Props) {
                 {st.hints.slice(0, st.shown).map((h, i) => (
                   <li key={i}>
                     <span className="hint-lv">{t.hintLv(i + 1)} · {t.hintLabels[i]}</span>
-                    <p className="hint-text">{h}</p>
+                    <p className="hint-text"><MathText text={h} /></p>
                   </li>
                 ))}
               </ol>

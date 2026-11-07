@@ -13,6 +13,7 @@ import { emptyInk, groupByLine, inkReducer } from "@/lib/ink/history";
 import { LINE_HEIGHT, TOP_MARGIN } from "@/lib/ink/geometry";
 import { useLineRecognition } from "@/lib/ink/useLineRecognition";
 import { useVerify } from "@/lib/useVerify";
+import type { ProblemLike } from "@/lib/problems";
 import type { Stroke } from "@/lib/ink/types";
 
 const MIN_LINES = 10;
@@ -39,9 +40,9 @@ function usePersisted<T>(key: string, initial: T): [T, (v: T) => void, boolean] 
   return [value, setValue, ready];
 }
 
-type Props = { problemId: string; problemLatex: string; nextId: string | null; nextHref?: string | null };
+type Props = { problemId: string; problem: ProblemLike; nextId: string | null; nextHref?: string | null };
 
-export default function SolveBoard({ problemId, problemLatex, nextId, nextHref }: Props) {
+export default function SolveBoard({ problemId, problem, nextId, nextHref }: Props) {
   const nextLink = nextHref ?? (nextId ? `/solve/${nextId}` : null);
   const { t } = useLang();
   const [ink, dispatch] = useReducer(inkReducer, emptyInk);
@@ -86,7 +87,11 @@ export default function SolveBoard({ problemId, problemLatex, nextId, nextHref }
     return m;
   }, [results, typed, byLine]);
 
-  const verify = useVerify(problemLatex, lineTexts);
+  const verify0 = useVerify(problem, lineTexts);
+  // 증명 문제는 Claude 확인(✓ 버튼)으로 끝을 판정
+  const [reviewedOk, setReviewedOk] = useState<string | null>(null);
+  const linesKey = JSON.stringify([...lineTexts.entries()]);
+  const verify = { ...verify0, solved: verify0.solved || reviewedOk === linesKey };
 
   const usedLines = [...byLine.keys(), ...Object.keys(typed).map(Number)];
   const maxLine = usedLines.reduce((m, l) => Math.max(m, l), -1);
@@ -201,7 +206,11 @@ export default function SolveBoard({ problemId, problemLatex, nextId, nextHref }
         </div>
       </div>
       <HintPanel
-        problem={problemLatex}
+        problem={problem.statement}
+        kind={problem.kind}
+        latex={problem.latex}
+        answerType={problem.answerType}
+        onReviewedOk={() => setReviewedOk(linesKey)}
         lineTexts={lineTexts}
         statuses={verify.statuses}
         firstWrong={verify.firstWrong}

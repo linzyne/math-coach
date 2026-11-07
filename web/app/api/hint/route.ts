@@ -6,70 +6,93 @@ export const maxDuration = 60;
 
 type LineIn = { line: number; latex: string; status?: "ok" | "wrong" | "unparsed" };
 type QA = { q: string; a: string };
-type Body = { problem: string; lines: LineIn[]; firstWrong: number | null; question?: string; history?: QA[]; solution?: boolean; lang?: "en" | "ko" };
+type Body = {
+  problem: string;
+  /** solve: 중학교 일차방정식 / free: IB AA HL 증명·이항정리 등 */
+  problemKind?: "solve" | "free";
+  lines: LineIn[];
+  firstWrong: number | null;
+  question?: string;
+  history?: QA[];
+  solution?: boolean;
+  /** ✓ 다 풀었어요: 풀이 전체 확인 */
+  review?: boolean;
+  lang?: "en" | "ko";
+};
 
 export type HintResponse =
   | { mode: "error"; line: number; mistakeType: string; message: string }
   | { mode: "next"; hints: [string, string, string] }
   | { mode: "answer"; answer: string }
-  | { mode: "solution"; steps: SolutionStep[] };
+  | { mode: "solution"; steps: SolutionStep[] }
+  | { mode: "review"; correct: boolean; line: number | null; feedback: string };
 
-export const STEP_KINDS = ["괄호 풀기", "분모 없애기", "이항", "동류항 정리", "양변 나누기", "약분", "기타"] as const;
-export type SolutionStep = { latex: string; explain: string; why?: string; kind?: (typeof STEP_KINDS)[number]; op?: string };
+const SOLVE_KINDS = ["괄호 풀기", "분모 없애기", "이항", "동류항 정리", "양변 나누기", "약분", "기타"] as const;
+const FREE_KINDS = ["기본 단계", "귀납 가정", "귀납 단계", "식 정리", "결론", "일반항", "지수 정리", "계수 계산", "전개", "방정식 풀기", "기타"] as const;
+export const STEP_KINDS = [...SOLVE_KINDS, ...FREE_KINDS.filter((k) => k !== "기타")] as const;
+export type SolutionStep = { latex: string; explain: string; why?: string; kind?: string; op?: string };
 
-const MISTAKE_TYPES = ["부호 실수", "이항 실수", "분배법칙 실수", "계산 실수", "분모 처리 실수", "소수 처리 실수", "식 옮겨 쓰기 실수", "기타"] as const;
-const MISTAKE_TYPES_EN = [
-  "Sign error",
-  "Moving terms error",
-  "Expanding brackets error",
-  "Arithmetic error",
-  "Fraction error",
-  "Decimal error",
-  "Copying error",
-  "Other",
-] as const;
+const MISTAKES = {
+  solve: {
+    ko: ["부호 실수", "이항 실수", "분배법칙 실수", "계산 실수", "분모 처리 실수", "소수 처리 실수", "식 옮겨 쓰기 실수", "기타"],
+    en: ["Sign error", "Moving terms error", "Expanding brackets error", "Arithmetic error", "Fraction error", "Decimal error", "Copying error", "Other"],
+  },
+  free: {
+    ko: ["식 변형 실수", "계산 실수", "부호 실수", "지수 계산 실수", "이항계수 실수", "기본 단계 문제", "귀납 가정을 쓰지 않음", "결론 문장 빠짐", "기타"],
+    en: ["Algebra error", "Arithmetic error", "Sign error", "Index (power) error", "Binomial coefficient error", "Base case problem", "Inductive hypothesis not used", "Missing conclusion", "Other"],
+  },
+};
 
 /** 영어 모드: 학생이 영어 모국어 화자 */
 const EN_RULE = `
-[Language] The student's first language is English. Write every student-facing sentence (message, hint1~3, answer, explain) in simple, natural English only.
-- Never use Korean words or Korean in parentheses. Use standard English math terms (e.g. "move the term to the other side", "expand the brackets", "multiply both sides by 3").
+[Language] The student's first language is English. Write every student-facing sentence (message, hint1~3, answer, explain, why, feedback) in simple, natural English only.
+- Never use Korean words or Korean in parentheses. Use standard English math terms.
 - Keep it short and warm. Refer to lines as "Line 2".`;
 
-const SYSTEM = `너는 중학생의 일차방정식 풀이를 돕는 다정한 수학 코치야.
+const SYSTEM_BASE = `너는 학생의 수학 풀이를 돕는 다정한 수학 코치야.
 가장 중요한 원칙: 학생이 스스로 고치고 스스로 풀게 한다. 정답이나 고친 식을 먼저 알려주지 않는다.
-- 말투: 중학생에게 말하듯 짧고 따뜻한 존댓말(~해요). 한두 문장.
-- 수식은 LaTeX 없이 평범한 글자로 쓴다. 예: 4x - 8 = 2x + 6, x/3
-- 학생 풀이의 줄 번호는 사람이 읽는 번호(1부터)로 말한다.`;
+- 짧고 따뜻하게. 한두 문장.
+- 학생 풀이의 줄 번호는 사람이 읽는 번호(1부터)로 말한다.
+- 학생에게 보이는 글 속의 수식은 $...$ 로 감싼 LaTeX로 쓴다. 예: $4x - 8 = 2x + 6$, $\\sum_{r=1}^{k} r$, $\\binom{8}{4}$`;
+
+const LEVEL = {
+  solve: `
+[학생 수준] 중학생, 일차방정식 단원. 말투는 중학생에게 말하듯 쉬운 존댓말(~해요).`,
+  free: `
+[학생 수준] IB Mathematics: Analysis and Approaches HL, 11학년. 단원: 수학적 귀납법(Mathematical Induction), 이항정리(Binomial Theorem) 등.
+- 증명은 IB 채점 방식을 따른다: 기본 단계(n=1 등) 확인 → P(k)가 참이라고 가정 → 가정을 사용해 P(k+1) 유도 → 결론 문장("Since P(1) is true and P(k) true implies P(k+1) true, P(n) is true for all n by induction").
+- 이항정리는 일반항 $T_{r+1} = \\binom{n}{r} a^{n-r} b^r$ 을 중심으로 생각한다.`,
+};
 
 function fmtLines(lines: LineIn[]) {
   if (lines.length === 0) return "(아직 아무것도 쓰지 않음)";
-  return lines.map((l) => `${l.line + 1}번 줄: ${l.latex}${l.status === "unparsed" ? "  (자동 검사로 해석 못 함)" : ""}`).join("\n");
+  return lines.map((l) => `${l.line + 1}번 줄: ${l.latex}${l.status === "unparsed" ? "  (자동 검사로 판단 못 함)" : ""}`).join("\n");
 }
 
-function errorPrompt(b: Body, wrong: LineIn) {
+function errorPrompt(b: Body, wrong: LineIn, free: boolean) {
   const prev = b.lines.filter((l) => l.line < wrong.line && l.status === "ok").pop();
   return `문제: ${b.problem}
 
 학생 풀이:
 ${fmtLines(b.lines)}
 
-자동 검사 결과, 처음으로 틀린 줄은 ${wrong.line + 1}번 줄이에요. (바로 앞의 맞은 식: ${prev ? prev.latex : b.problem})
+자동 검사 결과, 처음으로 틀린 줄은 ${wrong.line + 1}번 줄이에요.${free ? " (이 줄의 등식이나 계산이 성립하지 않아요.)" : ` (바로 앞의 맞은 식: ${prev ? prev.latex : b.problem})`}
 이 줄에서 어떤 종류의 실수를 했는지 골라 주고, 학생이 그 줄을 다시 살펴보게 하는 짧은 말을 써 줘.
 - 틀린 위치(어느 부분/어느 항을 보면 되는지)와 실수 종류만 알려준다.
 - 올바른 식, 올바른 숫자, 최종 답은 절대 쓰지 않는다.`;
 }
 
-function nextPrompt(b: Body) {
+function nextPrompt(b: Body, free: boolean) {
   return `문제: ${b.problem}
 
-학생 풀이 (지금까지 모두 맞음):
+학생 풀이 (자동 검사로 찾은 틀린 줄 없음):
 ${fmtLines(b.lines)}
 
 학생이 다음 한 줄에서 막혔어요. 바로 다음 한 단계에 대한 힌트를 3단계로 써 줘.
 - hint1 (방향만): 무엇을 하면 좋을지 방향만. 구체적인 숫자나 식은 쓰지 않는다.
-- hint2 (구체적 행동): 어떤 항을 어떻게 하면 되는지 구체적으로. 하지만 결과 식은 쓰지 않는다.
-- hint3 (그 줄 풀이): 바로 다음 한 줄의 식만 보여준다. 그 뒤의 단계나 최종 답까지 가지 않는다.
-  (다음 한 줄이 곧 최종 답이라면 그 식을 보여줘도 된다.)`;
+- hint2 (구체적 행동): 무엇을 어떻게 하면 되는지 구체적으로. 하지만 결과 식은 쓰지 않는다.
+- hint3 (그 줄 풀이): 바로 다음 한 줄만 보여준다${free ? " (증명이면 다음 한 문장이나 식 한 줄)" : ""}. 그 뒤의 단계나 최종 답까지 가지 않는다.
+  (다음 한 줄이 곧 최종 답이라면 보여줘도 된다.)`;
 }
 
 function askPrompt(b: Body, question: string) {
@@ -83,26 +106,52 @@ ${past ? `\n앞선 대화:\n${past}\n` : ""}
 학생의 질문: ${question}
 
 이 질문에 답해 줘. 규칙:
-- 개념(이항, 분배법칙, 등식의 성질, 분모 없애기 등)은 쉽게 설명해도 된다. 예시가 필요하면 이 문제와 다른 숫자로 든다.
+- 개념은 쉽게 설명해도 된다. 예시가 필요하면 이 문제와 다른 숫자로 든다.
 - 이 문제의 최종 답이나 남은 풀이 전체는 알려주지 않는다. 답을 바로 달라고 하면 부드럽게 거절하고, 스스로 생각해 볼 수 있는 질문이나 다음 행동 하나를 제안한다.
 - 수학이나 이 문제와 상관없는 질문이면 짧게 받아주고 문제로 돌아오게 한다.
 - 3문장 이내.`;
 }
 
-function solutionPrompt(b: Body) {
-  return `문제: ${b.problem}
+function solutionPrompt(b: Body, free: boolean) {
+  if (!free) {
+    return `문제: ${b.problem}
 
 이 일차방정식의 정답 풀이를 중학교 교과서 방식으로 처음부터 끝까지 써 줘.
 - steps의 각 항목은 한 줄(한 단계)의 식이다. 첫 줄은 문제를 변형한 첫 단계부터 시작하고, 마지막 줄은 반드시 'x = 값' 꼴로 끝낸다.
-- latex: 그 줄의 식을 LaTeX로. 등호는 하나만. 분수는 \\frac{}{} 사용.
-- explain: 그 줄에서 무엇을 했는지 한 문장 (예: "양변에서 5를 빼요.", "괄호를 풀어요.").
+- latex: 그 줄의 식을 LaTeX로 ($ 없이). 등호는 하나만. 분수는 \\frac{}{} 사용.
+- explain: 그 줄에서 무엇을 했는지 한 문장 (예: "양변에서 5를 빼요.").
 - kind: 그 줄에서 한 동작의 종류 (언어와 상관없이 아래 한국어 값 중 하나). 괄호 풀기 / 분모 없애기(양변에 수를 곱함) / 이항(항을 반대편으로 옮김, 양변에 더하거나 뺌) / 동류항 정리 / 양변 나누기 / 약분 / 기타
-- why: 왜 이렇게 해도 되는지 / 왜 이렇게 하는지 개념을 1~2문장으로. 예: 등식의 성질(양변에 같은 수를 더하거나 빼거나 곱하거나 0이 아닌 수로 나눠도 등식은 그대로다, 저울 비유), 분배법칙, 이항하면 부호가 바뀌는 이유, 목표는 x만 한쪽에 남기는 것. 중학생이 이해할 수 있게 쉽게.
+- why: 왜 이렇게 해도 되는지 / 왜 이렇게 하는지 개념을 1~2문장으로 (등식의 성질과 저울 비유, 분배법칙, 이항하면 부호가 바뀌는 이유, 목표는 x만 남기기 등). 중학생이 이해할 수 있게.
 - op: 양변에 한 연산을 짧게. 예: "×6", "−5", "+2x", "÷2". 양변 연산이 아니면 빈 문자열.
 - 한 줄에 한 가지 일만 한다. 보통 3~6줄.`;
+  }
+  return `문제: ${b.problem}
+
+IB AA HL 모범 답안처럼 처음부터 끝까지 풀어 줘.
+- steps의 각 항목은 답안의 한 줄이다. 증명이면 기본 단계 → 가정 → 귀납 단계(식 변형 여러 줄) → 결론 순서.
+- latex: 그 줄 전체를 LaTeX로 ($ 없이). 글은 \\text{...} 안에 쓴다. 예: \\text{When } n = 1: \\text{ LHS} = 1, \\text{ RHS} = \\frac{1(2)}{2} = 1
+  · 식 변형은 등호로 이어 쓰고, 이전 줄에서 이어지는 줄은 "= ..." 로 시작해도 된다. 모든 등식과 계산은 실제로 성립해야 한다 (자동 검사기가 확인함).
+  · 합은 \\sum_{r=1}^{k}, 이항계수는 \\binom{n}{r}, 분수는 \\frac{}{} 사용.
+- explain: 그 줄에서 무엇을 했는지 한 문장.
+- kind: 그 줄의 역할 (언어와 상관없이 아래 한국어 값 중 하나). 기본 단계 / 귀납 가정 / 귀납 단계 / 식 정리 / 결론 / 일반항 / 지수 정리 / 계수 계산 / 전개 / 방정식 풀기 / 기타
+- why: 왜 이 단계가 필요한지 / 왜 이렇게 해도 되는지 개념을 1~2문장으로 (예: 도미노 비유, 가정을 써야 하는 이유, 일반항의 지수를 맞추는 이유).
+- op: 빈 문자열.
+- 보통 5~9줄.`;
 }
 
-const SOLUTION_SCHEMA = {
+function reviewPrompt(b: Body) {
+  return `문제: ${b.problem}
+
+학생 풀이:
+${fmtLines(b.lines)}
+
+학생이 "다 풀었어요"라고 했어요. 풀이 전체가 맞고 완전한지 IB 채점 기준으로 판단해 줘.
+- correct: 수학적으로 맞고 빠진 필수 단계가 없으면 true. (증명은 기본 단계, 가정, 가정을 사용한 귀납 단계, 결론 문장이 모두 있어야 함. 계산 문제는 최종 답이 맞아야 함.) 손글씨 인식 때문에 생긴 사소한 표기 차이는 봐준다.
+- line: correct가 false면 가장 먼저 고쳐야 할 줄 번호(1부터). 빠진 단계라서 특정 줄이 없으면 0. correct가 true면 0.
+- feedback: correct면 잘한 점을 짧게 칭찬. 아니면 무엇이 빠졌거나 어디를 다시 볼지만 짧게 알려준다. 올바른 식이나 답은 쓰지 않는다. 2문장 이내.`;
+}
+
+const solutionSchema = (free: boolean) => ({
   type: "object",
   properties: {
     steps: {
@@ -113,7 +162,7 @@ const SOLUTION_SCHEMA = {
           latex: { type: "string" },
           explain: { type: "string" },
           why: { type: "string" },
-          kind: { type: "string", enum: [...STEP_KINDS] },
+          kind: { type: "string", enum: free ? [...FREE_KINDS] : [...SOLVE_KINDS] },
           op: { type: "string" },
         },
         required: ["latex", "explain", "why", "kind", "op"],
@@ -123,7 +172,7 @@ const SOLUTION_SCHEMA = {
   },
   required: ["steps"],
   additionalProperties: false,
-};
+});
 
 const ANSWER_SCHEMA = {
   type: "object",
@@ -132,10 +181,17 @@ const ANSWER_SCHEMA = {
   additionalProperties: false,
 };
 
-const errorSchema = (en: boolean) => ({
+const REVIEW_SCHEMA = {
+  type: "object",
+  properties: { correct: { type: "boolean" }, line: { type: "integer" }, feedback: { type: "string" } },
+  required: ["correct", "line", "feedback"],
+  additionalProperties: false,
+};
+
+const errorSchema = (free: boolean, en: boolean) => ({
   type: "object",
   properties: {
-    mistake_type: { type: "string", enum: en ? [...MISTAKE_TYPES_EN] : [...MISTAKE_TYPES] },
+    mistake_type: { type: "string", enum: MISTAKES[free ? "free" : "solve"][en ? "en" : "ko"] },
     message: { type: "string" },
   },
   required: ["mistake_type", "message"],
@@ -169,7 +225,7 @@ function parseJson(text: string): Record<string, any> | null {
   for (const cand of [t, t.slice(t.indexOf("{"), t.lastIndexOf("}") + 1)]) {
     try {
       const v = JSON.parse(cand);
-      if (v && typeof v === "object") return v as Record<string, string>;
+      if (v && typeof v === "object") return v;
     } catch {}
   }
   return null;
@@ -177,76 +233,75 @@ function parseJson(text: string): Record<string, any> | null {
 
 export async function POST(req: Request) {
   const apiKey = readApiKey();
-  if (!apiKey) {
-    return NextResponse.json(
-      { error: "no_key", message: "Claude API 키가 없거나 형식이 달라요. Vercel의 ANTHROPIC_API_KEY 값을 확인해 주세요." },
-      { status: 503 },
-    );
-  }
+  if (!apiKey) return NextResponse.json({ error: "no_key" }, { status: 503 });
   let b: Body;
   try {
     b = (await req.json()) as Body;
   } catch {
     return NextResponse.json({ error: "bad_request" }, { status: 400 });
   }
-  if (typeof b?.problem !== "string" || !Array.isArray(b.lines) || b.lines.length > 40 || b.problem.length > 300 ||
-      b.lines.some((l) => typeof l.latex !== "string" || l.latex.length > 300) ||
+  if (typeof b?.problem !== "string" || !Array.isArray(b.lines) || b.lines.length > 40 || b.problem.length > 1500 ||
+      b.lines.some((l) => typeof l.latex !== "string" || l.latex.length > 500) ||
       (b.lang !== undefined && b.lang !== "en" && b.lang !== "ko") ||
+      (b.problemKind !== undefined && b.problemKind !== "solve" && b.problemKind !== "free") ||
       (b.question !== undefined && (typeof b.question !== "string" || b.question.length > 300 || !b.question.trim())) ||
       (b.history !== undefined && (!Array.isArray(b.history) || b.history.length > 6 ||
         b.history.some((h) => typeof h?.q !== "string" || typeof h?.a !== "string" || h.q.length > 300 || h.a.length > 800)))) {
     return NextResponse.json({ error: "bad_request" }, { status: 400 });
   }
+  const free = b.problemKind === "free";
+  const en = b.lang === "en";
   const lines = [...b.lines].sort((x, y) => x.line - y.line);
+  const body = { ...b, lines };
   const question = b.question?.trim();
-  const wrong = !question && b.firstWrong !== null ? lines.find((l) => l.line === b.firstWrong) : undefined;
   const solution = b.solution === true;
-  const schema = solution ? SOLUTION_SCHEMA : question ? ANSWER_SCHEMA : wrong ? errorSchema(b.lang === "en") : NEXT_SCHEMA;
+  const review = b.review === true && !solution && !question;
+  const wrong = !question && !solution && !review && b.firstWrong !== null ? lines.find((l) => l.line === b.firstWrong) : undefined;
+
+  const schema = solution ? solutionSchema(free) : review ? REVIEW_SCHEMA : question ? ANSWER_SCHEMA : wrong ? errorSchema(free, en) : NEXT_SCHEMA;
   const prompt = solution
-    ? solutionPrompt(b)
+    ? solutionPrompt(body, free)
+    : review
+    ? reviewPrompt(body)
     : question
-    ? askPrompt({ ...b, lines }, question)
+    ? askPrompt(body, question)
     : wrong
-    ? errorPrompt({ ...b, lines }, wrong)
-    : nextPrompt({ ...b, lines });
+    ? errorPrompt(body, wrong, free)
+    : nextPrompt(body, free);
+  const system = SYSTEM_BASE + LEVEL[free ? "free" : "solve"] + (en ? EN_RULE : "");
 
   // authToken: null → 다른 인증 환경변수가 있어도 API 키만 사용
   client ??= new Anthropic({ apiKey, authToken: null });
   try {
-    const en = b.lang === "en";
     const res = await client.beta.messages.create({
       model: "claude-opus-5-5",
-      max_tokens: 4000,
-      // 힌트는 짧은 일이라 낮은 effort로 빠르고 저렴하게
-      output_config: { effort: "low", format: { type: "json_schema", schema } },
+      max_tokens: 8000,
+      // 힌트는 짧은 일이라 낮은 effort, 풀이·증명 확인은 정확도가 중요해서 medium
+      output_config: { effort: solution || review ? "medium" : "low", format: { type: "json_schema", schema } },
       // 안전 분류기가 거절하면 서버에서 추천 모델로 자동 재시도
       betas: ["server-side-fallback-2026-07-01"],
       fallbacks: "default",
-      system: en ? SYSTEM + EN_RULE : SYSTEM,
+      system,
       messages: [{ role: "user", content: prompt }],
     });
 
     if (res.stop_reason === "refusal" || res.stop_reason === "max_tokens") {
       console.error("hint stop_reason", res.stop_reason, res.stop_details);
-      return NextResponse.json(
-        { error: "no_hint", message: `힌트를 만들지 못했어요. (${res.stop_reason})`, detail: res.stop_reason },
-        { status: 502 },
-      );
+      return NextResponse.json({ error: "no_hint", detail: res.stop_reason }, { status: 502 });
     }
     const text = res.content.flatMap((c) => (c.type === "text" ? [c.text] : [])).join("");
     const data = parseJson(text);
     if (!data) {
-      console.error("hint parse failed", res.stop_reason, res.content.map((c) => c.type), text.slice(0, 500));
-      return NextResponse.json(
-        { error: "parse", message: "힌트 형식을 읽지 못했어요.", detail: res.content.map((c) => c.type).join(",") || "empty" },
-        { status: 502 },
-      );
+      console.error("hint parse failed", res.content.map((c) => c.type), text.slice(0, 500));
+      return NextResponse.json({ error: "parse", detail: res.content.map((c) => c.type).join(",") || "empty" }, { status: 502 });
     }
     if (solution && (!Array.isArray(data.steps) || data.steps.length === 0)) {
-      return NextResponse.json({ error: "parse", message: "풀이를 만들지 못했어요. 다시 눌러 주세요." }, { status: 502 });
+      return NextResponse.json({ error: "parse" }, { status: 502 });
     }
     const out: HintResponse = solution
       ? { mode: "solution", steps: data.steps }
+      : review
+      ? { mode: "review", correct: !!data.correct, line: data.line > 0 ? data.line - 1 : null, feedback: data.feedback }
       : question
       ? { mode: "answer", answer: data.answer }
       : wrong
@@ -254,24 +309,14 @@ export async function POST(req: Request) {
       : { mode: "next", hints: [data.hint1, data.hint2, data.hint3] };
     return NextResponse.json(out);
   } catch (e) {
-    if (e instanceof Anthropic.RateLimitError) {
-      return NextResponse.json({ error: "rate_limit", message: "잠시 후 다시 눌러 주세요." }, { status: 429 });
-    }
-    if (e instanceof Anthropic.AuthenticationError) {
-      return NextResponse.json({ error: "bad_key", message: "Claude API 키가 올바르지 않아요." }, { status: 503 });
-    }
+    if (e instanceof Anthropic.RateLimitError) return NextResponse.json({ error: "rate_limit" }, { status: 429 });
+    if (e instanceof Anthropic.AuthenticationError) return NextResponse.json({ error: "bad_key" }, { status: 503 });
     if (e instanceof Anthropic.APIError) {
       console.error("claude api error", e.status, e.message);
-      return NextResponse.json(
-        { error: "api", message: "힌트 서버에 문제가 있어요.", detail: `${e.status ?? ""} ${shortMsg(e.message)}` },
-        { status: 502 },
-      );
+      return NextResponse.json({ error: "api", detail: `${e.status ?? ""} ${shortMsg(e.message)}` }, { status: 502 });
     }
     console.error("hint error", e);
     const err = e as Error;
-    return NextResponse.json(
-      { error: "unknown", message: "힌트를 만들지 못했어요.", detail: `${err?.name ?? "Error"}: ${shortMsg(err?.message)}` },
-      { status: 500 },
-    );
+    return NextResponse.json({ error: "unknown", detail: `${err?.name ?? "Error"}: ${shortMsg(err?.message)}` }, { status: 500 });
   }
 }

@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { canSpeak, latexToSpeech, speakQueue, stopSpeaking } from "@/lib/useSpeech";
+import { canSpeak, latexToSpeech, speakable, speakQueue, stopSpeaking } from "@/lib/useSpeech";
 import Tex from "./Tex";
+import MathText from "./MathText";
 import type { SolutionStep } from "@/app/api/hint/route";
 import { useLang, type Dict, type Lang } from "@/lib/i18n";
 
@@ -26,6 +27,17 @@ const KIND_STYLE: Record<string, { color: string; bg: string; icon: string }> = 
   "양변 나누기": { color: "#c2255c", bg: "#ffe8f0", icon: "➗" },
   약분: { color: "#5c7cfa", bg: "#edf2ff", icon: "✂️" },
   기타: { color: "#6b6a60", bg: "#f1efe8", icon: "✏️" },
+  // 증명·이항정리
+  "기본 단계": { color: "#0c8f80", bg: "#e3f7f4", icon: "1️⃣" },
+  "귀납 가정": { color: "#7048e8", bg: "#f1ecff", icon: "🤔" },
+  "귀납 단계": { color: "#d9480f", bg: "#fff0e6", icon: "🪜" },
+  "식 정리": { color: "#1c64d6", bg: "#e7f0ff", icon: "🧮" },
+  결론: { color: "#2b8a3e", bg: "#e6f7ea", icon: "✅" },
+  일반항: { color: "#7048e8", bg: "#f1ecff", icon: "🔣" },
+  "지수 정리": { color: "#c2255c", bg: "#ffe8f0", icon: "🔢" },
+  "계수 계산": { color: "#d9480f", bg: "#fff0e6", icon: "🧮" },
+  전개: { color: "#1c64d6", bg: "#e7f0ff", icon: "📐" },
+  "방정식 풀기": { color: "#0c8f80", bg: "#e3f7f4", icon: "⚖️" },
 };
 const styleOf = (k?: string) => KIND_STYLE[k ?? "기타"] ?? KIND_STYLE["기타"];
 
@@ -35,14 +47,16 @@ function colorize(latex: string): string {
 }
 
 /** Claude가 만든 풀이를 SymPy로 한 줄씩 검사해서 모두 맞을 때만 사용 */
-async function verified(problem: string, steps: Step[]): Promise<boolean> {
+async function verified(kind: "solve" | "free", latex: string | undefined, steps: Step[]): Promise<boolean> {
   try {
-    const r = await fetch("/api/py/verify", {
+    const lines = steps.map((s, i) => ({ line: i, latex: s.latex }));
+    const r = await fetch(kind === "solve" ? "/api/py/verify" : "/api/py/check-lines", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ problem, lines: steps.map((s, i) => ({ line: i, latex: s.latex })) }),
+      body: JSON.stringify(kind === "solve" ? { problem: latex, lines } : { lines }),
     });
     const d = await r.json();
+    if (kind === "free") return d.ok && d.results.every((x: { status: string }) => x.status !== "wrong");
     return d.ok && d.solved && d.results.length === steps.length && d.results.every((x: { status: string }) => x.status === "ok");
   } catch {
     return false;
@@ -53,7 +67,7 @@ function stepSpeech(s: Step, i: number, last: boolean, t: Dict, lang: Lang) {
   // 영어 음성에는 괄호 속 한국어 용어를 빼고 읽음
   const kind = s.kind && s.kind !== "기타" ? t.kinds[s.kind]?.replace(/\s*\(.*\)$/, "") + "." : "";
   const head = last ? t.sayAnswer : `${t.sayStep(i + 1)} ${kind}`;
-  return `${head} ${latexToSpeech(s.latex, lang)}. ${s.explain}${s.why ? ` ${t.sayWhy} ${s.why}` : ""}`;
+  return `${head} ${latexToSpeech(s.latex, lang)}. ${speakable(s.explain, lang)}${s.why ? ` ${t.sayWhy} ${speakable(s.why, lang)}` : ""}`;
 }
 
 function SolutionFlow({ problem, steps }: { problem: string; steps: Step[] }) {
@@ -76,7 +90,7 @@ function SolutionFlow({ problem, steps }: { problem: string; steps: Step[] }) {
     return () => stopSpeaking();
   }, []);
 
-  const texts = [`${t.sayProblem} ${latexToSpeech(problem, lang)}`, ...steps.map((s, i) => stepSpeech(s, i, i === steps.length - 1, t, lang))];
+  const texts = [`${t.sayProblem} ${speakable(problem, lang)}`, ...steps.map((s, i) => stepSpeech(s, i, i === steps.length - 1, t, lang))];
   const readAll = () => speakQueue(texts, (i) => setReading(i === null ? null : i - 1), lang);
   const readOne = (idx: number) => speakQueue([texts[idx + 1]], (i) => setReading(i === null ? null : idx), lang);
 
@@ -100,7 +114,7 @@ function SolutionFlow({ problem, steps }: { problem: string; steps: Step[] }) {
     <ol className="flow">
       <li className={`flow-card flow-problem ${reading === -1 ? "reading" : ""}`} onClick={() => voice && readOne(-1)}>
         <span className="flow-tag">{t.problem}</span>
-        <div className="flow-tex"><Tex tex={colorize(problem)} display /></div>
+        <div className="flow-statement"><MathText text={problem} /></div>
       </li>
       {steps.map((s, i) => {
         const st = styleOf(s.kind);
@@ -118,7 +132,7 @@ function SolutionFlow({ problem, steps }: { problem: string; steps: Step[] }) {
             <div className={`flow-card ${last ? "flow-final" : ""} ${reading === i ? "reading" : ""}`} onClick={() => voice && readOne(i)}>
               <span className="flow-num">{last ? "🎯" : i + 1}</span>
               <div className="flow-tex"><Tex tex={colorize(s.latex)} display /></div>
-              <p className="flow-explain">{s.explain}</p>
+              <p className="flow-explain"><MathText text={s.explain} /></p>
               {s.why && (
                 <>
                   <button
@@ -131,7 +145,7 @@ function SolutionFlow({ problem, steps }: { problem: string; steps: Step[] }) {
                   >
                     {openWhy.has(i) ? t.hideWhy : t.why}
                   </button>
-                  {openWhy.has(i) && <p className="flow-why">{s.why}</p>}
+                  {openWhy.has(i) && <p className="flow-why"><MathText text={s.why} /></p>}
                 </>
               )}
             </div>
@@ -143,7 +157,9 @@ function SolutionFlow({ problem, steps }: { problem: string; steps: Step[] }) {
   );
 }
 
-export default function SolutionView({ problem, onView }: { problem: string; onView: () => void }) {
+type ViewProps = { problem: string; kind: "solve" | "free"; latex?: string; onView: () => void };
+
+export default function SolutionView({ problem, kind, latex, onView }: ViewProps) {
   const { t, lang } = useLang();
   const [st, setSt] = useState<State>({ kind: "idle" });
   const cacheKey = `${lang}:${problem}`;
@@ -161,14 +177,14 @@ export default function SolutionView({ problem, onView }: { problem: string; onV
         const r = await fetch("/api/hint", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ problem, lines: [], firstWrong: null, solution: true, lang }),
+          body: JSON.stringify({ problem, problemKind: kind, lines: [], firstWrong: null, solution: true, lang }),
         });
         const d = await r.json().catch(() => ({}));
         if (!r.ok) {
           setSt({ kind: "fail", message: t.apiErrors[d.error ?? "unknown"] ?? t.solFail });
           return;
         }
-        if (d.mode === "solution" && (await verified(problem, d.steps))) {
+        if (d.mode === "solution" && (await verified(kind, latex, d.steps))) {
           solutionCache.set(cacheKey, d.steps);
           setSt({ kind: "show", steps: d.steps, open: true });
           onView();
