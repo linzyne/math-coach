@@ -69,6 +69,13 @@ const NEXT_SCHEMA = {
 
 let client: Anthropic | null = null;
 
+/** 환경변수에 예시 코드 등이 같이 붙여넣어져도 키 부분만 꺼내 쓴다 */
+function readApiKey(): string | null {
+  const raw = process.env.ANTHROPIC_API_KEY ?? "";
+  const m = raw.match(/sk-ant-[A-Za-z0-9_-]+/);
+  return m ? m[0] : null;
+}
+
 /** 진단용: 키 같은 비밀 문자열이 섞이지 않게 잘라서 보여줌 */
 function shortMsg(m?: string) {
   return (m ?? "").replace(/sk-ant-[\w-]+/g, "[key]").slice(0, 160);
@@ -86,8 +93,12 @@ function parseJson(text: string): Record<string, string> | null {
 }
 
 export async function POST(req: Request) {
-  if (!process.env.ANTHROPIC_API_KEY) {
-    return NextResponse.json({ error: "no_key", message: "Claude API 키가 아직 설정되지 않았어요." }, { status: 503 });
+  const apiKey = readApiKey();
+  if (!apiKey) {
+    return NextResponse.json(
+      { error: "no_key", message: "Claude API 키가 없거나 형식이 달라요. Vercel의 ANTHROPIC_API_KEY 값을 확인해 주세요." },
+      { status: 503 },
+    );
   }
   let b: Body;
   try {
@@ -102,7 +113,8 @@ export async function POST(req: Request) {
   const lines = [...b.lines].sort((x, y) => x.line - y.line);
   const wrong = b.firstWrong !== null ? lines.find((l) => l.line === b.firstWrong) : undefined;
 
-  client ??= new Anthropic();
+  // authToken: null → 다른 인증 환경변수가 있어도 API 키만 사용
+  client ??= new Anthropic({ apiKey, authToken: null });
   try {
     const res = await client.beta.messages.create({
       model: "claude-opus-5-5",
