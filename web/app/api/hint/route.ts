@@ -69,6 +69,22 @@ const NEXT_SCHEMA = {
 
 let client: Anthropic | null = null;
 
+/** 진단용: 키 같은 비밀 문자열이 섞이지 않게 잘라서 보여줌 */
+function shortMsg(m?: string) {
+  return (m ?? "").replace(/sk-ant-[\w-]+/g, "[key]").slice(0, 160);
+}
+
+function parseJson(text: string): Record<string, string> | null {
+  const t = text.trim().replace(/^```(?:json)?\s*|\s*```$/g, "");
+  for (const cand of [t, t.slice(t.indexOf("{"), t.lastIndexOf("}") + 1)]) {
+    try {
+      const v = JSON.parse(cand);
+      if (v && typeof v === "object") return v as Record<string, string>;
+    } catch {}
+  }
+  return null;
+}
+
 export async function POST(req: Request) {
   if (!process.env.ANTHROPIC_API_KEY) {
     return NextResponse.json({ error: "no_key", message: "Claude API 키가 아직 설정되지 않았어요." }, { status: 503 });
@@ -101,10 +117,21 @@ export async function POST(req: Request) {
     });
 
     if (res.stop_reason === "refusal" || res.stop_reason === "max_tokens") {
-      return NextResponse.json({ error: "no_hint", message: "힌트를 만들지 못했어요. 다시 눌러 주세요." }, { status: 502 });
+      console.error("hint stop_reason", res.stop_reason, res.stop_details);
+      return NextResponse.json(
+        { error: "no_hint", message: `힌트를 만들지 못했어요. 다시 눌러 주세요. (${res.stop_reason})` },
+        { status: 502 },
+      );
     }
     const text = res.content.flatMap((c) => (c.type === "text" ? [c.text] : [])).join("");
-    const data = JSON.parse(text) as Record<string, string>;
+    const data = parseJson(text);
+    if (!data) {
+      console.error("hint parse failed", res.stop_reason, res.content.map((c) => c.type), text.slice(0, 500));
+      return NextResponse.json(
+        { error: "parse", message: `힌트 형식을 읽지 못했어요. 다시 눌러 주세요. (${res.content.map((c) => c.type).join(",") || "empty"})` },
+        { status: 502 },
+      );
+    }
     const out: HintResponse = wrong
       ? { mode: "error", line: wrong.line, mistakeType: data.mistake_type, message: data.message }
       : { mode: "next", hints: [data.hint1, data.hint2, data.hint3] };
@@ -118,9 +145,16 @@ export async function POST(req: Request) {
     }
     if (e instanceof Anthropic.APIError) {
       console.error("claude api error", e.status, e.message);
-      return NextResponse.json({ error: "api", message: "힌트 서버에 문제가 있어요. 다시 눌러 주세요." }, { status: 502 });
+      return NextResponse.json(
+        { error: "api", message: `힌트 서버에 문제가 있어요. (${e.status ?? ""} ${shortMsg(e.message)})` },
+        { status: 502 },
+      );
     }
     console.error("hint error", e);
-    return NextResponse.json({ error: "unknown", message: "힌트를 만들지 못했어요." }, { status: 500 });
+    const err = e as Error;
+    return NextResponse.json(
+      { error: "unknown", message: `힌트를 만들지 못했어요. (${err?.name ?? "Error"}: ${shortMsg(err?.message)})` },
+      { status: 500 },
+    );
   }
 }
