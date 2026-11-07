@@ -197,7 +197,7 @@ class CheckIn(BaseModel):
 
 class CheckOut(BaseModel):
     ok: bool
-    reason: Optional[Literal["parse", "not_linear", "no_unique"]] = None
+    reason: Optional[Literal["parse", "not_linear", "no_unique", "not_equation"]] = None
     solution: Optional[str] = None
 
 
@@ -205,6 +205,9 @@ def check_problem(latex: str) -> CheckOut:
     """학생이 추가한 문제가 해가 하나인 일차방정식인지 확인"""
     from sympy import Poly, FiniteSet
 
+    # 부등식·증명 문제 등 '=' 하나짜리 방정식이 아닌 것
+    if re.search(r"[<>≤≥≠]|\\(geq?|leq?|neq?|ge|le|gt|lt|forall|text)\b", latex) or latex.count("=") != 1:
+        return CheckOut(ok=False, reason="not_equation")
     try:
         l, r = parse_equation(latex)
     except Exception:  # noqa: BLE001

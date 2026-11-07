@@ -40,8 +40,8 @@ export default function AddProblem({ onClose, onAdded }: { onClose: () => void; 
     setItems(list.map((latex, i) => ({ latex, ...results[i], selected: results[i].status === "ok" })));
   };
 
-  const onPhoto = async (file?: File) => {
-    if (!file) return;
+  const onPhoto = async (file?: Blob | null) => {
+    if (!file || busy) return;
     setBusy(true);
     setMsg(null);
     try {
@@ -62,6 +62,37 @@ export default function AddProblem({ onClose, onAdded }: { onClose: () => void; 
     }
   };
 
+  // 복사한 사진 붙여넣기 (⌘V / 길게 눌러 붙여넣기). 글자 붙여넣기는 그대로 둠
+  useEffect(() => {
+    if (items !== null) return;
+    const onPaste = (e: ClipboardEvent) => {
+      const file = Array.from(e.clipboardData?.items ?? [])
+        .find((it) => it.kind === "file" && it.type.startsWith("image/"))
+        ?.getAsFile();
+      if (file) {
+        e.preventDefault();
+        setTab("photo");
+        void onPhoto(file);
+      }
+    };
+    window.addEventListener("paste", onPaste);
+    return () => window.removeEventListener("paste", onPaste);
+  });
+
+  // 버튼으로 클립보드 사진 가져오기 (키보드 없는 아이폰·아이패드용)
+  const pasteFromClipboard = async () => {
+    try {
+      const entries = await navigator.clipboard.read();
+      for (const entry of entries) {
+        const type = entry.types.find((t) => t.startsWith("image/"));
+        if (type) return void onPhoto(await entry.getType(type));
+      }
+      setMsg(t.noImageInClipboard);
+    } catch {
+      setMsg(t.noImageInClipboard);
+    }
+  };
+
   const edit = (i: number, latex: string) => {
     setItems((cur) => cur && cur.map((it, j) => (j === i ? { ...it, latex, status: "checking" } : it)));
     clearTimeout(timers.current.get(i));
@@ -78,7 +109,21 @@ export default function AddProblem({ onClose, onAdded }: { onClose: () => void; 
 
   return (
     <div className="modal-bg" onClick={onClose}>
-      <div className="modal add-modal" onClick={(e) => e.stopPropagation()} role="dialog" aria-label={t.addTitle}>
+      <div
+        className="modal add-modal"
+        onClick={(e) => e.stopPropagation()}
+        onDragOver={(e) => e.preventDefault()}
+        onDrop={(e) => {
+          e.preventDefault();
+          const f = Array.from(e.dataTransfer.files).find((x) => x.type.startsWith("image/"));
+          if (f && items === null) {
+            setTab("photo");
+            void onPhoto(f);
+          }
+        }}
+        role="dialog"
+        aria-label={t.addTitle}
+      >
         <div className="solution-head">
           <h2>{t.addTitle}</h2>
           <button className="hint-close" onClick={onClose} aria-label={t.close}>✕</button>
@@ -97,6 +142,12 @@ export default function AddProblem({ onClose, onAdded }: { onClose: () => void; 
                 <button className="primary big" onClick={() => fileRef.current?.click()} disabled={busy}>
                   {busy ? t.reading : t.choosePhoto}
                 </button>
+                {typeof navigator !== "undefined" && "clipboard" in navigator && "read" in navigator.clipboard && (
+                  <button className="ghost big" onClick={pasteFromClipboard} disabled={busy}>
+                    {t.pasteImage}
+                  </button>
+                )}
+                <p className="hint-sub">{t.pasteTip}</p>
               </div>
             ) : (
               <div className="add-pane">
@@ -142,7 +193,7 @@ export default function AddProblem({ onClose, onAdded }: { onClose: () => void; 
               ))}
             </ul>
             <div className="modal-actions">
-              <button className="ghost" onClick={() => setItems(null)}>{t.back}</button>
+              <button className="ghost" onClick={() => setItems(null)}>{t.backStep}</button>
               <span style={{ flex: 1 }} />
               <button
                 className="primary"

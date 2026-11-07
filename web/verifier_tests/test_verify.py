@@ -93,3 +93,5 @@ def test_check_problem():
     assert check_problem("3x + = ").reason == "parse"
     assert check_problem("2y - 4 = 6").solution == "y = 5"
     assert check_problem("x + y = 3").reason == "not_linear"
+    assert check_problem(r"3^n > 2^n + n \quad \text{for all } n \geq 10").reason == "not_equation"
+    assert check_problem("2x + 1 < 5").reason == "not_equation"

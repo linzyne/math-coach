@@ -47,7 +47,7 @@ export function parsePasted(text: string): string[] {
 }
 
 /** 사진을 긴 변 1600px JPEG로 줄여서 base64로 (업로드 용량·비용 절약) */
-export async function imageToBase64(file: File): Promise<string> {
+export async function imageToBase64(file: Blob): Promise<string> {
   const url = URL.createObjectURL(file);
   try {
     const img = await new Promise<HTMLImageElement>((resolve, reject) => {
