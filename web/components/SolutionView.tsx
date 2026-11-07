@@ -44,7 +44,8 @@ const styleOf = (k?: string) => KIND_STYLE[k ?? "기타"] ?? KIND_STYLE["기타"
 
 /** x가 들어간 항을 파란색으로 (\max 같은 명령어 안의 x는 제외) */
 function colorize(latex: string): string {
-  return latex.replace(/(?<![\\a-zA-Z])((?:\d+(?:\.\d+)?)?\s*x)(?![a-zA-Z])/g, "\\textcolor{#1c64d6}{$1}");
+  // 사파리 16.3 호환: lookbehind 대신 앞 글자를 그룹으로 잡음
+  return latex.replace(/(^|[^\\a-zA-Z])((?:\d+(?:\.\d+)?)?\s*x)(?![a-zA-Z])/g, "$1\\textcolor{#1c64d6}{$2}");
 }
 
 /** Claude가 만든 풀이를 SymPy로 한 줄씩 검사해서 모두 맞을 때만 사용 */

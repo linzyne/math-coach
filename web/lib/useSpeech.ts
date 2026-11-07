@@ -102,7 +102,8 @@ export function latexToSpeech(src: string, lang: Lang): string {
     .replace(/=/g, W.eq)
     .replace(/\+/g, W.plus)
     .replace(/[-−]/g, W.minus)
-    .replace(/(?<![a-zA-Z\\])x(?![a-zA-Z])/g, W.x)
+    // (사파리 16.3은 정규식 lookbehind를 못 읽어서 앞 글자를 잡아 되돌려 넣음)
+    .replace(/(^|[^a-zA-Z\\])x(?![a-zA-Z])/g, (_m, pre: string) => pre + W.x)
     .replace(/\\[a-zA-Z]+/g, " ");
   return s.replace(/\s+/g, " ").trim();
 }
