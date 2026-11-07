@@ -23,7 +23,7 @@ export default async function SolvePage({ params }: { params: Promise<{ id: stri
         </div>
         <span className="hint-hint">한 줄에 한 단계씩 써 보세요</span>
       </header>
-      <SolveBoard problemId={problem.id} />
+      <SolveBoard problemId={problem.id} problemLatex={problem.latex} nextId={PROBLEMS[idx + 1]?.id ?? null} />
     </main>
   );
 }

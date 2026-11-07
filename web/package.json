@@ -5,6 +5,8 @@
   "scripts": {
     "dev": "next dev",
     "dev:lan": "next dev -H 0.0.0.0",
+    "dev:py": "python3 -m uvicorn api.index:app --port 8000 --reload",
+    "test:py": "python3 -m pytest -q verifier_tests",
     "build": "next build",
     "start": "next start",
     "typecheck": "tsc --noEmit"
