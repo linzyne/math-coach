@@ -6,12 +6,13 @@ export const maxDuration = 60;
 
 type LineIn = { line: number; latex: string; status?: "ok" | "wrong" | "unparsed" };
 type QA = { q: string; a: string };
-type Body = { problem: string; lines: LineIn[]; firstWrong: number | null; question?: string; history?: QA[] };
+type Body = { problem: string; lines: LineIn[]; firstWrong: number | null; question?: string; history?: QA[]; solution?: boolean };
 
 export type HintResponse =
   | { mode: "error"; line: number; mistakeType: string; message: string }
   | { mode: "next"; hints: [string, string, string] }
-  | { mode: "answer"; answer: string };
+  | { mode: "answer"; answer: string }
+  | { mode: "solution"; steps: { latex: string; explain: string }[] };
 
 const MISTAKE_TYPES = ["부호 실수", "이항 실수", "분배법칙 실수", "계산 실수", "분모 처리 실수", "소수 처리 실수", "식 옮겨 쓰기 실수", "기타"] as const;
 
@@ -69,6 +70,33 @@ ${past ? `\n앞선 대화:\n${past}\n` : ""}
 - 3문장 이내.`;
 }
 
+function solutionPrompt(b: Body) {
+  return `문제: ${b.problem}
+
+이 일차방정식의 정답 풀이를 중학교 교과서 방식으로 처음부터 끝까지 써 줘.
+- steps의 각 항목은 한 줄(한 단계)의 식이다. 첫 줄은 문제를 변형한 첫 단계부터 시작하고, 마지막 줄은 반드시 'x = 값' 꼴로 끝낸다.
+- latex: 그 줄의 식을 LaTeX로. 등호는 하나만. 분수는 \\frac{}{} 사용.
+- explain: 그 줄에서 무엇을 했는지 한 문장 (예: "양변에서 5를 빼요.", "괄호를 풀어요.").
+- 한 줄에 한 가지 일만 한다. 보통 3~6줄.`;
+}
+
+const SOLUTION_SCHEMA = {
+  type: "object",
+  properties: {
+    steps: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: { latex: { type: "string" }, explain: { type: "string" } },
+        required: ["latex", "explain"],
+        additionalProperties: false,
+      },
+    },
+  },
+  required: ["steps"],
+  additionalProperties: false,
+};
+
 const ANSWER_SCHEMA = {
   type: "object",
   properties: { answer: { type: "string" } },
@@ -107,7 +135,8 @@ function shortMsg(m?: string) {
   return (m ?? "").replace(/sk-ant-[\w-]+/g, "[key]").slice(0, 160);
 }
 
-function parseJson(text: string): Record<string, string> | null {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function parseJson(text: string): Record<string, any> | null {
   const t = text.trim().replace(/^```(?:json)?\s*|\s*```$/g, "");
   for (const cand of [t, t.slice(t.indexOf("{"), t.lastIndexOf("}") + 1)]) {
     try {
@@ -142,8 +171,15 @@ export async function POST(req: Request) {
   const lines = [...b.lines].sort((x, y) => x.line - y.line);
   const question = b.question?.trim();
   const wrong = !question && b.firstWrong !== null ? lines.find((l) => l.line === b.firstWrong) : undefined;
-  const schema = question ? ANSWER_SCHEMA : wrong ? ERROR_SCHEMA : NEXT_SCHEMA;
-  const prompt = question ? askPrompt({ ...b, lines }, question) : wrong ? errorPrompt({ ...b, lines }, wrong) : nextPrompt({ ...b, lines });
+  const solution = b.solution === true;
+  const schema = solution ? SOLUTION_SCHEMA : question ? ANSWER_SCHEMA : wrong ? ERROR_SCHEMA : NEXT_SCHEMA;
+  const prompt = solution
+    ? solutionPrompt(b)
+    : question
+    ? askPrompt({ ...b, lines }, question)
+    : wrong
+    ? errorPrompt({ ...b, lines }, wrong)
+    : nextPrompt({ ...b, lines });
 
   // authToken: null → 다른 인증 환경변수가 있어도 API 키만 사용
   client ??= new Anthropic({ apiKey, authToken: null });
@@ -176,7 +212,12 @@ export async function POST(req: Request) {
         { status: 502 },
       );
     }
-    const out: HintResponse = question
+    if (solution && (!Array.isArray(data.steps) || data.steps.length === 0)) {
+      return NextResponse.json({ error: "parse", message: "풀이를 만들지 못했어요. 다시 눌러 주세요." }, { status: 502 });
+    }
+    const out: HintResponse = solution
+      ? { mode: "solution", steps: data.steps }
+      : question
       ? { mode: "answer", answer: data.answer }
       : wrong
       ? { mode: "error", line: wrong.line, mistakeType: data.mistake_type, message: data.message }

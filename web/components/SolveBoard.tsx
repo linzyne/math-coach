@@ -124,7 +124,12 @@ export default function SolveBoard({ problemId, problemLatex, nextId }: Props) {
       {verify.solved && (
         <div className="praise" role="status">
           <span>
-            정답이에요! {hintTotal(hintLog) === 0 ? "힌트 없이 스스로 끝까지 풀었어요 👏" : `힌트 ${hintTotal(hintLog)}번으로 끝까지 풀었어요 👏`}
+            정답이에요!{" "}
+            {(hintLog.solutionViews ?? 0) > 0
+              ? "풀이를 보고 끝까지 직접 써 봤어요. 다음엔 풀이 없이 도전해 봐요 💪"
+              : hintTotal(hintLog) === 0
+              ? "힌트 없이 스스로 끝까지 풀었어요 👏"
+              : `힌트 ${hintTotal(hintLog)}번으로 끝까지 풀었어요 👏`}
           </span>
           {nextId ? (
             <Link href={`/solve/${nextId}`} className="primary">다음 문제 →</Link>
@@ -203,9 +208,10 @@ export default function SolveBoard({ problemId, problemLatex, nextId }: Props) {
         setLog={setHintLog}
         onFocusLine={setFocusLine}
       />
-      {(hintTotal(hintLog) > 0 || (hintLog.questions ?? 0) > 0) && !verify.solved && (
+      {(hintTotal(hintLog) > 0 || (hintLog.questions ?? 0) > 0 || (hintLog.solutionViews ?? 0) > 0) && !verify.solved && (
         <div className="hint-count">
           힌트 {hintTotal(hintLog)}회{(hintLog.questions ?? 0) > 0 ? ` · 질문 ${hintLog.questions}회` : ""}
+          {(hintLog.solutionViews ?? 0) > 0 ? " · 풀이 봄" : ""}
         </div>
       )}
       {editing !== null && (

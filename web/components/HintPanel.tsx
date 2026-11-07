@@ -5,6 +5,7 @@ import type { HintResponse } from "@/app/api/hint/route";
 import type { LineStatus } from "@/lib/useVerify";
 import type { HintLog } from "@/lib/hintLog";
 import { speak, useSpeech } from "@/lib/useSpeech";
+import SolutionView from "./SolutionView";
 
 type Props = {
   problem: string;
@@ -126,6 +127,10 @@ export default function HintPanel(p: Props) {
     if (final) void sendQuestion(undefined, text);
   });
 
+  const solutionBox = (
+    <SolutionView problem={p.problem} onView={() => p.setLog({ ...p.log, solutionViews: (p.log.solutionViews ?? 0) + 1 })} />
+  );
+
   const askBox = (
     <div className="ask">
       {qa.length > 0 && (
@@ -214,6 +219,7 @@ export default function HintPanel(p: Props) {
                 </div>
                 <p className="hint-text">{st.message}</p>
                 <p className="hint-sub">그 줄을 고치면 자동으로 다시 검사해요.</p>
+                {solutionBox}
                 {askBox}
               </>
             ))}
@@ -234,6 +240,7 @@ export default function HintPanel(p: Props) {
               ) : (
                 <p className="hint-sub">이제 직접 써 보세요!</p>
               )}
+              {solutionBox}
               {askBox}
             </>
           )}

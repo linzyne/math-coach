@@ -163,3 +163,12 @@ a { color: inherit; text-decoration: none; }
 .mic-btn:disabled { opacity: .5; }
 .speak-btn { border: 0; background: transparent; margin-left: 4px; padding: 0 4px; font-size: 15px; cursor: pointer; vertical-align: middle; }
 .ask-err { color: #b3261e; margin-top: 6px; }
+
+/* 풀이 보기 */
+.solution-open { display: block; margin-top: 10px; font-weight: 600; }
+.solution-confirm { margin-top: 10px; padding: 10px 12px; background: #f3f0e6; border-radius: 12px; }
+.solution-confirm p { margin: 0 0 8px; font-size: 15px; }
+.solution-box { margin-top: 10px; padding: 10px 12px; background: #f7f9fd; border: 1px solid #dfe7f5; border-radius: 12px; }
+.solution-steps { margin: 6px 0 8px; padding-left: 0; list-style: none; display: grid; gap: 6px; }
+.solution-steps li { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; font-size: 18px; }
+.solution-explain { font-size: 13px; color: var(--muted); }
