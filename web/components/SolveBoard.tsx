@@ -39,9 +39,10 @@ function usePersisted<T>(key: string, initial: T): [T, (v: T) => void, boolean] 
   return [value, setValue, ready];
 }
 
-type Props = { problemId: string; problemLatex: string; nextId: string | null };
+type Props = { problemId: string; problemLatex: string; nextId: string | null; nextHref?: string | null };
 
-export default function SolveBoard({ problemId, problemLatex, nextId }: Props) {
+export default function SolveBoard({ problemId, problemLatex, nextId, nextHref }: Props) {
+  const nextLink = nextHref ?? (nextId ? `/solve/${nextId}` : null);
   const { t } = useLang();
   const [ink, dispatch] = useReducer(inkReducer, emptyInk);
   const [tool, setTool] = useState<Tool>("pen");
@@ -133,8 +134,8 @@ export default function SolveBoard({ problemId, problemLatex, nextId }: Props) {
               ? t.praiseNoHint
               : t.praiseHints(hintTotal(hintLog))}
           </span>
-          {nextId ? (
-            <Link href={`/solve/${nextId}`} className="primary">{t.next}</Link>
+          {nextLink ? (
+            <Link href={nextLink} className="primary">{t.next}</Link>
           ) : (
             <Link href="/" className="primary">{t.toList}</Link>
           )}

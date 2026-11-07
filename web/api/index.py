@@ -188,6 +188,43 @@ def verify(problem: str, lines: list[LineIn]) -> VerifyOut:
     return VerifyOut(ok=True, results=results, first_wrong=first_wrong, solved=solved)
 
 
+# ---------------------------------------------------------------- 새 문제 확인
+
+
+class CheckIn(BaseModel):
+    latex: str
+
+
+class CheckOut(BaseModel):
+    ok: bool
+    reason: Optional[Literal["parse", "not_linear", "no_unique"]] = None
+    solution: Optional[str] = None
+
+
+def check_problem(latex: str) -> CheckOut:
+    """학생이 추가한 문제가 해가 하나인 일차방정식인지 확인"""
+    from sympy import Poly, FiniteSet
+
+    try:
+        l, r = parse_equation(latex)
+    except Exception:  # noqa: BLE001
+        return CheckOut(ok=False, reason="parse")
+    expr = simplify(l - r)
+    syms = expr.free_symbols
+    if len(syms) != 1:
+        return CheckOut(ok=False, reason="not_linear" if len(syms) > 1 else "no_unique")
+    var = next(iter(syms))
+    try:
+        if Poly(expr, var).degree() != 1:
+            return CheckOut(ok=False, reason="not_linear")
+    except Exception:  # noqa: BLE001  (분모에 x가 있는 식 등)
+        return CheckOut(ok=False, reason="not_linear")
+    sol = solveset(expr, var, domain=S.Reals)
+    if not isinstance(sol, FiniteSet) or len(sol) != 1:
+        return CheckOut(ok=False, reason="no_unique")
+    return CheckOut(ok=True, solution=f"{var} = {next(iter(sol))}")
+
+
 # ---------------------------------------------------------------- FastAPI
 
 app = FastAPI(docs_url="/api/py/docs", openapi_url="/api/py/openapi.json")
@@ -203,3 +240,10 @@ def verify_endpoint(body: VerifyIn) -> VerifyOut:
     if len(body.lines) > 60 or len(body.problem) > 500 or any(len(l.latex) > 500 for l in body.lines):
         return VerifyOut(ok=False, results=[], error="too large")
     return verify(body.problem, body.lines)
+
+
+@app.post("/api/py/check", response_model=CheckOut)
+def check_endpoint(body: CheckIn) -> CheckOut:
+    if len(body.latex) > 300:
+        return CheckOut(ok=False, reason="parse")
+    return check_problem(body.latex)

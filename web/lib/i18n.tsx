@@ -37,6 +37,14 @@ const ko = {
   solAfter: "풀이를 본 뒤에는 창을 닫고 직접 다시 써 보세요. ✍️", readAll: "🔊 처음부터 읽어주기", stopRead: "■ 그만 읽기", tapCard: "카드를 누르면 그 단계만 읽어줘요",
   kinds: { "괄호 풀기": "괄호 풀기", "분모 없애기": "분모 없애기", 이항: "이항", "동류항 정리": "동류항 정리", "양변 나누기": "양변 나누기", 약분: "약분", 기타: "기타" } as Record<string, string>,
   sayProblem: "문제.", sayAnswer: "답.", sayStep: (i: number) => `${i}단계.`,
+  addProblem: "＋ 문제 추가", myProblems: "내가 추가한 문제", samples: "샘플 문제", del: "삭제", delConfirm: "이 문제를 지울까요?",
+  addTitle: "문제 추가", tabPhoto: "📷 사진", tabPaste: "📋 붙여넣기 / 입력",
+  photoHelp: "문제집이나 학습지를 찍거나 사진을 고르세요. 사진 속 방정식을 찾아 드려요.", choosePhoto: "사진 찍기 / 고르기", reading: "사진에서 문제를 찾는 중…",
+  noneFound: "사진에서 방정식을 찾지 못했어요. 더 가까이, 밝게 찍어 보세요.",
+  pasteHelp: "한 줄에 문제 하나씩 붙여넣거나 입력하세요. 번호는 알아서 지워요.", pastePlaceholder: "3x + 5 = 20\n2(x - 1) = x + 4", findProblems: "문제 찾기",
+  review: "추가할 문제를 확인하고 고쳐 주세요", checking: "확인 중…", okSol: "풀 수 있어요",
+  reasons: { parse: "식을 읽을 수 없어요", not_linear: "아직 일차방정식만 지원해요", no_unique: "해가 하나가 아니에요" } as Record<string, string>,
+  addN: (n: number) => `${n}문제 추가`, added: (n: number) => `${n}문제를 추가했어요`,
   why: "💡 왜?", hideWhy: "접기", expandAll: "💡 모두 펼치기", collapseAll: "모두 접기", sayWhy: "왜냐하면,",
 };
 
@@ -75,6 +83,14 @@ const en: Dict = {
   solAfter: "After reading, close this and write it out yourself. ✍️", readAll: "🔊 Read it to me", stopRead: "■ Stop", tapCard: "Tap a card to hear just that step",
   kinds: { "괄호 풀기": "Expand brackets", "분모 없애기": "Clear fractions", 이항: "Move terms", "동류항 정리": "Combine like terms", "양변 나누기": "Divide both sides", 약분: "Simplify", 기타: "Other" },
   sayProblem: "Problem.", sayAnswer: "Answer.", sayStep: (i: number) => `Step ${i}.`,
+  addProblem: "＋ Add problem", myProblems: "My problems", samples: "Sample problems", del: "Delete", delConfirm: "Delete this problem?",
+  addTitle: "Add a problem", tabPhoto: "📷 Photo", tabPaste: "📋 Paste / type",
+  photoHelp: "Take a photo of your worksheet or textbook, or choose one. I'll find the equations in it.", choosePhoto: "Take / choose photo", reading: "Finding problems in the photo…",
+  noneFound: "Couldn't find any equations. Try a closer, brighter photo.",
+  pasteHelp: "Paste or type one problem per line. Numbers like 1) are removed automatically.", pastePlaceholder: "3x + 5 = 20\n2(x - 1) = x + 4", findProblems: "Find problems",
+  review: "Check the problems before adding (you can edit them)", checking: "Checking…", okSol: "Solvable",
+  reasons: { parse: "Can't read this equation", not_linear: "Only linear equations for now", no_unique: "Doesn't have exactly one solution" },
+  addN: (n: number) => `Add ${n} problem${n === 1 ? "" : "s"}`, added: (n: number) => `Added ${n} problem${n === 1 ? "" : "s"}`,
   why: "💡 Why?", hideWhy: "Hide", expandAll: "💡 Show all whys", collapseAll: "Hide all", sayWhy: "Why?",
 };
 

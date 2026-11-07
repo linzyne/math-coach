@@ -3,7 +3,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "api"))
 
-from index import LineIn, verify, latex_to_sympy_str  # noqa: E402
+from index import LineIn, check_problem, verify, latex_to_sympy_str  # noqa: E402
 
 
 def run(problem, *lines):
@@ -82,3 +82,14 @@ def test_all_sample_answers():
     ]
     for p, a in samples:
         assert run(p, a).solved, p
+
+
+def test_check_problem():
+    assert check_problem("3x + 5 = 20").ok
+    assert check_problem(r"\frac{x+1}{2} = \frac{x-2}{3} + 2").solution == "x = 5"
+    assert check_problem("x^2 = 4").reason == "not_linear"
+    assert check_problem("x + 1 = x + 1").reason == "no_unique"
+    assert check_problem("x + 1 = x + 2").reason == "no_unique"
+    assert check_problem("3x + = ").reason == "parse"
+    assert check_problem("2y - 4 = 6").solution == "y = 5"
+    assert check_problem("x + y = 3").reason == "not_linear"
