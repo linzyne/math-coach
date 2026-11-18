@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.6.0",
+    "firebase": "^13.4.0",
     "katex": "^0.19.1",
     "mathjs": "^15.2.0",
     "mathlive": "^0.111.4",

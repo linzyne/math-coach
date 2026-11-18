@@ -16,6 +16,31 @@ function openDb(): Promise<IDBDatabase> {
   });
 }
 
+export async function kvGet<T>(key: string): Promise<T | undefined> {
+  try {
+    const db = await openDb();
+    return await new Promise<T | undefined>((resolve, reject) => {
+      const req = db.transaction(STORE).objectStore(STORE).get(key);
+      req.onsuccess = () => resolve(req.result as T | undefined);
+      req.onerror = () => reject(req.error);
+    });
+  } catch {
+    return undefined;
+  }
+}
+
+export async function kvSet(key: string, value: unknown): Promise<void> {
+  try {
+    const db = await openDb();
+    await new Promise<void>((resolve, reject) => {
+      const tx = db.transaction(STORE, "readwrite");
+      tx.objectStore(STORE).put(value, key);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  } catch {}
+}
+
 export async function loadCollection(): Promise<Collection> {
   try {
     const db = await openDb();

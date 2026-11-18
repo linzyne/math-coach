@@ -12,7 +12,7 @@ import DataPanel from "./DataPanel";
 import { addSampleDeck } from "@/lib/cards/sample";
 
 export default function DeckList({ onStudy }: { onStudy: (deckId: string) => void }) {
-  const { col, mutate, t, lang, toast, version } = useCards();
+  const { col, mutate, t, lang, toast, version, account } = useCards();
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [menuFor, setMenuFor] = useState<string | null>(null);
   const [optionsFor, setOptionsFor] = useState<string | null>(null);
@@ -53,8 +53,14 @@ export default function DeckList({ onStudy }: { onStudy: (deckId: string) => voi
     <div className="fc-page">
       <header className="fc-head">
         <h1>{t.title}</h1>
-        <button className="fc-iconbtn" onClick={() => setData(true)} aria-label={t.dataTitle}>⚙︎</button>
+        <div className="fc-head-actions">
+          {account.email && <span className={`fc-cloud s-${account.status}`} title={t.syncState[account.status]}>☁︎</span>}
+          <button className="fc-iconbtn" onClick={() => setData(true)} aria-label={t.dataTitle}>⚙︎</button>
+        </div>
       </header>
+      {account.enabled && account.ready && !account.email && (
+        <button className="fc-banner" onClick={() => void account.signIn()}>☁︎ {t.cloudBanner} ›</button>
+      )}
 
       {empty && (
         <div className="fc-empty">

@@ -232,3 +232,22 @@
   .fc-face { font-size: 26px; }
   .fc-answer-bar { border: 1px solid var(--fc-line); border-radius: 18px 18px 0 0; }
 }
+
+/* 계정·동기화 */
+.fc-head-actions { display: flex; align-items: center; gap: 2px; }
+.fc-cloud { font-size: 20px; color: var(--fc-muted); padding: 0 4px; }
+.fc-cloud.s-synced { color: var(--fc-good); }
+.fc-cloud.s-syncing { color: var(--fc-accent); animation: pulse 1.2s ease-in-out infinite; }
+.fc-cloud.s-error, .fc-cloud.s-offline { color: var(--fc-learn); }
+.fc-banner { display: block; width: 100%; text-align: left; border: 1px solid var(--fc-line); background: var(--fc-accent-soft); color: var(--fc-accent);
+  border-radius: 12px; padding: 12px 14px; min-height: 48px; font-weight: 600; margin-bottom: 12px; }
+.fc-account { padding: 12px 14px; display: flex; flex-direction: column; gap: 10px; }
+.fc-account .fc-help { margin: 0; }
+.fc-account-note { margin: 0 4px 16px; }
+.fc-google { display: flex; align-items: center; justify-content: center; gap: 10px; min-height: 48px; border: 1px solid var(--fc-line); border-radius: 12px;
+  background: #fff; color: #1f1f1f; font-weight: 600; font-size: 16px; }
+.fc-google .g { font-weight: 800; color: #4285f4; font-size: 18px; }
+.fc-sync { font-size: 14px; }
+.fc-sync.s-synced { color: var(--fc-good); }
+.fc-sync.s-error, .fc-sync.s-offline { color: var(--fc-learn); }
+.fc-opt-btn.danger { color: var(--fc-again); }

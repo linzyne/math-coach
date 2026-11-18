@@ -43,6 +43,10 @@ const ko = {
   importType: "자동 (빈칸 감지)", exportAll: "전체 텍스트 내보내기 (.txt)", restored: "복원했어요", badFile: "파일을 읽지 못했어요",
   sampleDeck: "예제 덱 넣기", sampleAdded: "예제 덱을 넣었어요",
   back2: "← 덱", home: "← Math", close: "닫기", ok: "확인", noCards: "카드가 없어요", remaining: "남음",
+  account: "계정 · 동기화", signInGoogle: "구글로 로그인", signOut: "로그아웃", signedInAs: (e: string) => `${e} 로 로그인됨`, signInFail: "로그인하지 못했어요. 다시 시도해 주세요.",
+  cloudHelp: "로그인하면 카드가 계정에 저장돼서 사라지지 않고, 아이폰·PC가 자동으로 맞춰져요.", notConfigured: "아직 Firebase 설정값이 없어요. 지금은 이 기기에만 저장돼요.",
+  syncNow: "지금 동기화", syncState: { off: "꺼짐", syncing: "동기화 중…", synced: "동기화됨 ✓", offline: "오프라인 · 연결되면 올라가요", error: "동기화 오류 · 다시 시도해요" } as Record<string, string>,
+  pendingN: (n: number) => `올릴 항목 ${n}개`, signOutConfirm: "로그아웃할까요? 이 기기의 카드는 그대로 남아 있어요.", cloudBanner: "카드가 사라지지 않게 로그인해 두세요",
   keyHint: "스페이스: 정답 · 1~4: 평가 · Z: 되돌리기 · E: 편집",
 };
 
@@ -91,6 +95,10 @@ const en: CardDict = {
   importType: "Auto (detect cloze)", exportAll: "Export all as text (.txt)", restored: "Restored", badFile: "Couldn't read that file",
   sampleDeck: "Add sample deck", sampleAdded: "Sample deck added",
   back2: "← Decks", home: "← Math", close: "Close", ok: "OK", noCards: "No cards", remaining: "left",
+  account: "Account & sync", signInGoogle: "Sign in with Google", signOut: "Sign out", signedInAs: (e) => `Signed in as ${e}`, signInFail: "Couldn't sign in. Please try again.",
+  cloudHelp: "Sign in to back up your cards to your account and keep iPhone and PC in sync.", notConfigured: "Firebase isn't configured yet. Cards are stored on this device only.",
+  syncNow: "Sync now", syncState: { off: "Off", syncing: "Syncing…", synced: "Synced ✓", offline: "Offline · will upload when online", error: "Sync error · retrying" },
+  pendingN: (n) => `${n} pending`, signOutConfirm: "Sign out? Cards on this device stay here.", cloudBanner: "Sign in so you never lose your cards",
   keyHint: "Space: answer · 1–4: rate · Z: undo · E: edit",
 };
 

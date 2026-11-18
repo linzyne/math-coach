@@ -7,8 +7,32 @@ import { sortedDecks } from "@/lib/cards/collection";
 import { LangToggle } from "@/lib/i18n";
 import { useCards } from "./store";
 
+export function AccountSection() {
+  const { t, account } = useCards();
+  if (!account.enabled) return <p className="fc-help fc-account-note">{t.notConfigured}</p>;
+  if (!account.ready) return <section><div className="fc-opt"><span className="muted">…</span></div></section>;
+  if (!account.email) {
+    return (
+      <section className="fc-account">
+        <p className="fc-help">{t.cloudHelp}</p>
+        <button className="fc-google" onClick={() => void account.signIn()}><span className="g">G</span>{t.signInGoogle}</button>
+      </section>
+    );
+  }
+  return (
+    <section>
+      <div className="fc-opt"><span className="fc-ellipsis">{t.signedInAs(account.email)}</span></div>
+      <div className="fc-opt">
+        <span className={`fc-sync s-${account.status}`}>{t.syncState[account.status]}{account.pending > 0 && account.status !== "synced" ? ` · ${t.pendingN(account.pending)}` : ""}</span>
+        <button className="link" onClick={account.syncNow}>{t.syncNow}</button>
+      </div>
+      <button className="fc-opt-btn danger" onClick={() => { if (confirm(t.signOutConfirm)) void account.signOut(); }}>{t.signOut}</button>
+    </section>
+  );
+}
+
 export default function DataPanel({ onClose }: { onClose: () => void }) {
-  const { col, mutate, replace, t, toast } = useCards();
+  const { col, mutate, replace, t, toast, account } = useCards();
   const [text, setText] = useState("");
   const [deckName, setDeckName] = useState(col.decks.find((d) => d.id === col.settings.lastDeckId)?.name ?? sortedDecks(col)[0].name);
   const [type, setType] = useState<NoteType | "auto">("auto");
@@ -30,6 +54,8 @@ export default function DataPanel({ onClose }: { onClose: () => void }) {
           <button className="link strong" onClick={onClose}>{t.close}</button>
         </header>
         <div className="fc-sheet-body fc-opts">
+          <h3>{t.account}</h3>
+          <AccountSection />
           <section>
             <div className="fc-opt"><span>Language</span><LangToggle /></div>
             <label className="fc-opt">
