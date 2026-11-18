@@ -32,17 +32,106 @@ export function AccountSection() {
   );
 }
 
-export default function DataPanel({ onClose }: { onClose: () => void }) {
-  const { col, mutate, replace, t, toast, account } = useCards();
+/** 파일·붙여넣기로 카드 넣기. fixedDeck 이 있으면 그 덱으로만 */
+export function ImportSection({ fixedDeck, onDone }: { fixedDeck?: string; onDone?: () => void }) {
+  const { col, mutate, t, toast } = useCards();
   const [text, setText] = useState("");
   const [sheetRows, setSheetRows] = useState<string[][] | null>(null); // 엑셀에서 읽은 표
   const [fileName, setFileName] = useState<string | null>(null);
-  const [deckName, setDeckName] = useState(col.decks.find((d) => d.id === col.settings.lastDeckId)?.name ?? sortedDecks(col)[0].name);
+  const [deckName, setDeckName] = useState(fixedDeck ?? col.decks.find((d) => d.id === col.settings.lastDeckId)?.name ?? sortedDecks(col)[0].name);
   const [type, setType] = useState<NoteType | "auto">("auto");
   const [hasTags, setHasTags] = useState(true);
   const fileRef = useRef<HTMLInputElement>(null);
-  const backupRef = useRef<HTMLInputElement>(null);
   const rows = useMemo(() => dropHeader(sheetRows ?? (text.trim() ? parseDelimited(text) : [])), [text, sheetRows]);
+  return (
+    <>
+          <p className="fc-help">{t.importHelp}</p>
+          <textarea className="fc-import" rows={5} placeholder={t.importPaste} value={text} onChange={(e) => { setText(e.target.value); setSheetRows(null); setFileName(null); }} />
+          <div className="fc-row2">
+            <button className={fixedDeck && !rows.length ? "primary" : "ghost"} onClick={() => fileRef.current?.click()}>📄 {t.chooseFile}</button>
+            <input ref={fileRef} type="file" hidden onChange={async (e) => {
+              const f = e.target.files?.[0];
+              e.target.value = "";
+              if (!f) return;
+              const bytes = new Uint8Array(await f.arrayBuffer());
+              if (isXlsx(bytes)) {
+                try {
+                  setSheetRows(readXlsx(bytes));
+                  setFileName(f.name);
+                  setText("");
+                } catch { toast(t.badFile); }
+              } else if (/\.(xls|numbers|docx|pdf|hwp)$/i.test(f.name)) {
+                toast(t.badFile);
+              } else {
+                setSheetRows(null);
+                setFileName(null);
+                setText(decodeText(bytes));
+              }
+            }} />
+            <label className="fc-field inline"><input type="checkbox" checked={hasTags} onChange={(e) => setHasTags(e.target.checked)} /> {t.hasTags}</label>
+          </div>
+          {fileName && <p className="fc-help fc-file-name">📄 {fileName}</p>}
+          {rows.length > 0 && (
+            <>
+              <div className="fc-row2">
+                {fixedDeck ? (
+                  <div className="fc-field"><span>{t.deck}</span><div className="fc-fixed-deck">{fixedDeck}</div></div>
+                ) : (
+                  <label className="fc-field"><span>{t.deck}</span>
+                    <input list="fc-decks-imp" value={deckName} onChange={(e) => setDeckName(e.target.value)} />
+                    <datalist id="fc-decks-imp">{sortedDecks(col).map((d) => <option key={d.id} value={d.name} />)}</datalist>
+                  </label>
+                )}
+                <label className="fc-field"><span>{t.type}</span>
+                  <select value={type} onChange={(e) => setType(e.target.value as NoteType | "auto")}>
+                    <option value="auto">{t.importType}</option>
+                    <option value="basic">{t.typeBasic}</option>
+                    <option value="reversed">{t.typeReversed}</option>
+                    <option value="cloze">{t.typeCloze}</option>
+                  </select>
+                </label>
+              </div>
+              <ul className="fc-import-preview">
+                {rows.slice(0, 3).map((r, i) => <li key={i}><b>{r[0]}</b> → {r[1]}{hasTags && r[2] ? <em> #{r[2]}</em> : null}</li>)}
+              </ul>
+              <button className="primary" onClick={() => {
+                let n = 0;
+                mutate((c) => { n = importRows(c, rows, deckName, type, hasTags); });
+                toast(t.imported(n));
+                setText("");
+                setSheetRows(null);
+                setFileName(null);
+                onDone?.();
+              }}>{t.importDo(rows.length)}</button>
+            </>
+          )}
+    </>
+  );
+}
+
+/** 덱 하나에 파일로 카드 넣기 (덱 메뉴·빈 덱에서) */
+export function ImportSheet({ deckName, onClose }: { deckName: string; onClose: () => void }) {
+  const { t } = useCards();
+  return (
+    <div className="fc-sheet-bg">
+      <div className="fc-sheet" role="dialog" aria-modal="true">
+        <header className="fc-sheet-head">
+          <button className="link" onClick={onClose}>{t.cancel}</button>
+          <b className="fc-ellipsis">{deckName.split("::").pop()}</b>
+          <span />
+        </header>
+        <div className="fc-sheet-body fc-opts">
+          <h3>{t.importText}</h3>
+          <ImportSection fixedDeck={deckName} onDone={onClose} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default function DataPanel({ onClose }: { onClose: () => void }) {
+  const { col, mutate, replace, t, toast, account } = useCards();
+  const backupRef = useRef<HTMLInputElement>(null);
   const s = col.settings;
 
   const setSetting = (patch: Partial<typeof s>) => mutate((c) => { c.settings = { ...c.settings, ...patch }; });
@@ -88,61 +177,7 @@ export default function DataPanel({ onClose }: { onClose: () => void }) {
           </section>
 
           <h3>{t.importText}</h3>
-          <p className="fc-help">{t.importHelp}</p>
-          <textarea className="fc-import" rows={5} placeholder={t.importPaste} value={text} onChange={(e) => { setText(e.target.value); setSheetRows(null); setFileName(null); }} />
-          <div className="fc-row2">
-            <button className="ghost" onClick={() => fileRef.current?.click()}>{t.chooseFile}</button>
-            <input ref={fileRef} type="file" hidden onChange={async (e) => {
-              const f = e.target.files?.[0];
-              e.target.value = "";
-              if (!f) return;
-              const bytes = new Uint8Array(await f.arrayBuffer());
-              if (isXlsx(bytes)) {
-                try {
-                  setSheetRows(readXlsx(bytes));
-                  setFileName(f.name);
-                  setText("");
-                } catch { toast(t.badFile); }
-              } else if (/\.(xls|numbers|docx|pdf|hwp)$/i.test(f.name)) {
-                toast(t.badFile);
-              } else {
-                setSheetRows(null);
-                setFileName(null);
-                setText(decodeText(bytes));
-              }
-            }} />
-            <label className="fc-field inline"><input type="checkbox" checked={hasTags} onChange={(e) => setHasTags(e.target.checked)} /> {t.hasTags}</label>
-          </div>
-          {fileName && <p className="fc-help">📄 {fileName}</p>}
-          {rows.length > 0 && (
-            <>
-              <div className="fc-row2">
-                <label className="fc-field"><span>{t.deck}</span>
-                  <input list="fc-decks-imp" value={deckName} onChange={(e) => setDeckName(e.target.value)} />
-                  <datalist id="fc-decks-imp">{sortedDecks(col).map((d) => <option key={d.id} value={d.name} />)}</datalist>
-                </label>
-                <label className="fc-field"><span>{t.type}</span>
-                  <select value={type} onChange={(e) => setType(e.target.value as NoteType | "auto")}>
-                    <option value="auto">{t.importType}</option>
-                    <option value="basic">{t.typeBasic}</option>
-                    <option value="reversed">{t.typeReversed}</option>
-                    <option value="cloze">{t.typeCloze}</option>
-                  </select>
-                </label>
-              </div>
-              <ul className="fc-import-preview">
-                {rows.slice(0, 3).map((r, i) => <li key={i}><b>{r[0]}</b> → {r[1]}{hasTags && r[2] ? <em> #{r[2]}</em> : null}</li>)}
-              </ul>
-              <button className="primary" onClick={() => {
-                let n = 0;
-                mutate((c) => { n = importRows(c, rows, deckName, type, hasTags); });
-                toast(t.imported(n));
-                setText("");
-                setSheetRows(null);
-                setFileName(null);
-              }}>{t.importDo(rows.length)}</button>
-            </>
-          )}
+          <ImportSection />
         </div>
       </div>
     </div>

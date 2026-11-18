@@ -47,7 +47,8 @@ const ko = {
   cloudHelp: "로그인하면 카드가 계정에 저장돼서 사라지지 않고, 아이폰·PC가 자동으로 맞춰져요.", notConfigured: "아직 Firebase 설정값이 없어요. 지금은 이 기기에만 저장돼요.",
   syncNow: "지금 동기화", syncState: { off: "꺼짐", syncing: "동기화 중…", synced: "동기화됨 ✓", offline: "오프라인 · 연결되면 올라가요", error: "동기화 오류 · 다시 시도해요" } as Record<string, string>,
   pendingN: (n: number) => `올릴 항목 ${n}개`, signOutConfirm: "로그아웃할까요? 이 기기의 카드는 그대로 남아 있어요.", cloudBanner: "카드가 사라지지 않게 로그인해 두세요",
-  deckCreated: (n: string) => `"${n}" 덱을 만들었어요. ＋ 추가나 ⚙︎ 파일 가져오기로 카드를 넣어 보세요`,
+  deckCreated: (n: string) => `"${n}" 덱을 만들었어요. 덱을 눌러 파일을 올려 보세요`,
+  importToDeck: "파일로 카드 넣기", emptyDeckHint: "비어 있음 · 눌러서 파일 올리기",
   keyHint: "스페이스: 정답 · 1~4: 평가 · Z: 되돌리기 · E: 편집",
 };
 
@@ -100,7 +101,8 @@ const en: CardDict = {
   cloudHelp: "Sign in to back up your cards to your account and keep iPhone and PC in sync.", notConfigured: "Firebase isn't configured yet. Cards are stored on this device only.",
   syncNow: "Sync now", syncState: { off: "Off", syncing: "Syncing…", synced: "Synced ✓", offline: "Offline · will upload when online", error: "Sync error · retrying" },
   pendingN: (n) => `${n} pending`, signOutConfirm: "Sign out? Cards on this device stay here.", cloudBanner: "Sign in so you never lose your cards",
-  deckCreated: (n) => `Created "${n}". Add cards with ＋ Add or ⚙︎ Import`,
+  deckCreated: (n) => `Created "${n}". Tap it to upload a file`,
+  importToDeck: "Add cards from a file", emptyDeckHint: "Empty · tap to upload a file",
   keyHint: "Space: answer · 1–4: rate · Z: undo · E: edit",
 };
 

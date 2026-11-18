@@ -8,7 +8,7 @@ import { download, exportTsv } from "@/lib/cards/io";
 import { deckFamily } from "@/lib/cards/scheduler";
 import { useCards } from "./store";
 import DeckOptions from "./DeckOptions";
-import DataPanel from "./DataPanel";
+import DataPanel, { ImportSheet } from "./DataPanel";
 import { addSampleDeck } from "@/lib/cards/sample";
 
 export default function DeckList({ onStudy }: { onStudy: (deckId: string) => void }) {
@@ -41,6 +41,7 @@ export default function DeckList({ onStudy }: { onStudy: (deckId: string) => voi
       }));
   }, [col, version, collapsed]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  const [importTo, setImportTo] = useState<string | null>(null); // 덱 이름
   const [naming, setNaming] = useState<null | { kind: "new" } | { kind: "rename"; id: string; name: string }>(null);
   const cleanName = (n: string) => n.split("::").map((x) => x.trim()).filter(Boolean).join("::");
   const saveName = (name: string) => {
@@ -92,7 +93,7 @@ export default function DeckList({ onStudy }: { onStudy: (deckId: string) => voi
           </div>
           {rows.map(({ deck, depth, hasChildren, counts, total }) => (
             <div key={deck.id} className="fc-deck-row" style={{ paddingLeft: 8 + depth * 18 }}>
-              <button className="fc-deck-main" onClick={() => onStudy(deck.id)}>
+              <button className="fc-deck-main" onClick={() => (total === 0 ? setImportTo(deck.name) : onStudy(deck.id))}>
                 {hasChildren ? (
                   <span
                     className="fc-caret"
@@ -108,7 +109,7 @@ export default function DeckList({ onStudy }: { onStudy: (deckId: string) => voi
                 ) : <span className="fc-caret" />}
                 <span className="fc-deck-name">
                   {deck.name.split("::").pop()}
-                  <small>{t.nCards(total)}</small>
+                  {total === 0 ? <small className="empty">{t.emptyDeckHint}</small> : <small>{t.nCards(total)}</small>}
                 </span>
               </button>
               <span className={`fc-num c-new ${counts.newCount ? "" : "zero"}`}>{counts.newCount}</span>
@@ -125,6 +126,7 @@ export default function DeckList({ onStudy }: { onStudy: (deckId: string) => voi
       {menuDeck && (
         <ActionSheet onClose={() => setMenuFor(null)} title={menuDeck.name}>
           <button onClick={() => { setMenuFor(null); onStudy(menuDeck.id); }}>▶︎ {t.studyNow}</button>
+          <button onClick={() => { setMenuFor(null); setImportTo(menuDeck.name); }}>📄 {t.importToDeck}</button>
           <button onClick={() => { setMenuFor(null); setOptionsFor(menuDeck.id); }}>⚙︎ {t.options}</button>
           <button onClick={() => { setMenuFor(null); setNaming({ kind: "rename", id: menuDeck.id, name: menuDeck.name }); }}>✏️ {t.rename}</button>
           <button onClick={() => { setMenuFor(null); download(`${menuDeck.name.replace(/::/g, "-")}.txt`, exportTsv(col, deckFamily(col, menuDeck.id))); }}>⤓ {t.exportDeck}</button>
@@ -137,6 +139,7 @@ export default function DeckList({ onStudy }: { onStudy: (deckId: string) => voi
       )}
       {optionsFor && <DeckOptions deck={col.decks.find((d) => d.id === optionsFor) as Deck} onClose={() => setOptionsFor(null)} />}
       {data && <DataPanel onClose={() => setData(false)} />}
+      {importTo && <ImportSheet deckName={importTo} onClose={() => setImportTo(null)} />}
       {naming && (
         <NameSheet
           title={naming.kind === "new" ? t.createDeck.replace(/^＋\s*/, "") : t.rename}

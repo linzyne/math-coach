@@ -262,3 +262,6 @@
 .fc-dialog input:focus { outline: 2px solid var(--fc-accent); outline-offset: -1px; }
 .fc-dialog-btns { display: flex; gap: 8px; justify-content: flex-end; }
 .fc-dialog-btns button { min-width: 88px; justify-content: center; }
+.fc-fixed-deck { min-height: 46px; display: flex; align-items: center; padding: 0 12px; border-radius: 12px; background: var(--fc-soft); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fc-deck-name small.empty { color: var(--fc-accent); }
+.fc-help.fc-file-name { margin: 8px 2px 12px; }
