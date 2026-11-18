@@ -251,3 +251,14 @@
 .fc-sync.s-synced { color: var(--fc-good); }
 .fc-sync.s-error, .fc-sync.s-offline { color: var(--fc-learn); }
 .fc-opt-btn.danger { color: var(--fc-again); }
+
+/* 이름 입력 창 */
+.fc-center { align-items: flex-start; padding: calc(env(safe-area-inset-top) + 80px) 16px 16px; }
+.fc-dialog { width: 100%; max-width: 420px; background: var(--fc-paper); color: var(--fc-ink); border-radius: 18px; padding: 18px; display: flex; flex-direction: column; gap: 10px;
+  box-shadow: 0 12px 40px rgba(0,0,0,.25); animation: fcup .18s ease-out; }
+.fc-dialog b { font-size: 17px; }
+.fc-dialog .fc-help { margin: 0; }
+.fc-dialog input { width: 100%; border: 1px solid var(--fc-line); border-radius: 12px; background: var(--fc-bg); padding: 12px; min-height: 48px; }
+.fc-dialog input:focus { outline: 2px solid var(--fc-accent); outline-offset: -1px; }
+.fc-dialog-btns { display: flex; gap: 8px; justify-content: flex-end; }
+.fc-dialog-btns button { min-width: 88px; justify-content: center; }

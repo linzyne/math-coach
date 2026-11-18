@@ -41,13 +41,26 @@ export default function DeckList({ onStudy }: { onStudy: (deckId: string) => voi
       }));
   }, [col, version, collapsed]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const createDeck = () => {
-    const name = prompt(t.deckName);
-    if (name?.trim()) mutate((c) => ensureDeck(c, name));
+  const [naming, setNaming] = useState<null | { kind: "new" } | { kind: "rename"; id: string; name: string }>(null);
+  const cleanName = (n: string) => n.split("::").map((x) => x.trim()).filter(Boolean).join("::");
+  const saveName = (name: string) => {
+    const n = cleanName(name);
+    const job = naming;
+    setNaming(null);
+    if (!n || !job) return;
+    if (job.kind === "new") {
+      // 새 덱을 만들면 카드 추가·가져오기의 기본 덱도 그 덱으로
+      mutate((c) => { const d = ensureDeck(c, n); c.settings.lastDeckId = d.id; });
+      toast(t.deckCreated(n));
+    } else if (n !== job.name) {
+      mutate((c) => renameDeck(c, job.id, n));
+    }
   };
 
   const menuDeck = col.decks.find((d) => d.id === menuFor);
   const empty = col.cards.length === 0;
+  // 카드가 없어도 직접 만든 덱은 보여 준다
+  const showList = rows.some((r) => r.deck.name !== "Default" || r.total > 0);
 
   return (
     <div className="fc-page">
@@ -68,7 +81,7 @@ export default function DeckList({ onStudy }: { onStudy: (deckId: string) => voi
         </div>
       )}
 
-      {!empty && (
+      {showList && (
         <div className="fc-decks">
           <div className="fc-deck-cols" aria-hidden>
             <span />
@@ -107,17 +120,13 @@ export default function DeckList({ onStudy }: { onStudy: (deckId: string) => voi
         </div>
       )}
 
-      <button className="ghost fc-wide" onClick={createDeck}>{t.createDeck}</button>
+      <button className="ghost fc-wide" onClick={() => setNaming({ kind: "new" })}>{t.createDeck}</button>
 
       {menuDeck && (
         <ActionSheet onClose={() => setMenuFor(null)} title={menuDeck.name}>
           <button onClick={() => { setMenuFor(null); onStudy(menuDeck.id); }}>▶︎ {t.studyNow}</button>
           <button onClick={() => { setMenuFor(null); setOptionsFor(menuDeck.id); }}>⚙︎ {t.options}</button>
-          <button onClick={() => {
-            const name = prompt(t.rename, menuDeck.name);
-            setMenuFor(null);
-            if (name?.trim() && name !== menuDeck.name) mutate((c) => renameDeck(c, menuDeck.id, name.split("::").map((s) => s.trim()).filter(Boolean).join("::")));
-          }}>✏️ {t.rename}</button>
+          <button onClick={() => { setMenuFor(null); setNaming({ kind: "rename", id: menuDeck.id, name: menuDeck.name }); }}>✏️ {t.rename}</button>
           <button onClick={() => { setMenuFor(null); download(`${menuDeck.name.replace(/::/g, "-")}.txt`, exportTsv(col, deckFamily(col, menuDeck.id))); }}>⤓ {t.exportDeck}</button>
           <button className="danger" onClick={() => {
             const n = col.cards.filter((c) => deckFamily(col, menuDeck.id).has(c.deckId)).length;
@@ -128,6 +137,35 @@ export default function DeckList({ onStudy }: { onStudy: (deckId: string) => voi
       )}
       {optionsFor && <DeckOptions deck={col.decks.find((d) => d.id === optionsFor) as Deck} onClose={() => setOptionsFor(null)} />}
       {data && <DataPanel onClose={() => setData(false)} />}
+      {naming && (
+        <NameSheet
+          title={naming.kind === "new" ? t.createDeck.replace(/^＋\s*/, "") : t.rename}
+          help={t.deckName}
+          initial={naming.kind === "rename" ? naming.name : ""}
+          onSave={saveName}
+          onClose={() => setNaming(null)}
+        />
+      )}
+    </div>
+  );
+}
+
+/** 이름 하나를 입력받는 창 (아이폰 기본 prompt 대신) */
+export function NameSheet({ title, help, initial, suggestions, onSave, onClose }: { title: string; help?: string; initial: string; suggestions?: string[]; onSave: (v: string) => void; onClose: () => void }) {
+  const { t } = useCards();
+  const [v, setV] = useState(initial);
+  return (
+    <div className="fc-sheet-bg fc-center" onClick={onClose}>
+      <form className="fc-dialog" onClick={(e) => e.stopPropagation()} onSubmit={(e) => { e.preventDefault(); if (v.trim()) onSave(v); }}>
+        <b>{title}</b>
+        {help && <p className="fc-help">{help}</p>}
+        <input autoFocus value={v} onChange={(e) => setV(e.target.value)} list={suggestions ? "fc-name-sugg" : undefined} autoCapitalize="off" autoCorrect="off" enterKeyHint="done" />
+        {suggestions && <datalist id="fc-name-sugg">{suggestions.map((x) => <option key={x} value={x} />)}</datalist>}
+        <div className="fc-dialog-btns">
+          <button type="button" className="ghost" onClick={onClose}>{t.cancel}</button>
+          <button type="submit" className="primary" disabled={!v.trim()}>{t.ok}</button>
+        </div>
+      </form>
     </div>
   );
 }

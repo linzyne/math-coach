@@ -4,7 +4,7 @@ const ko = {
   title: "Spanish",
   tabDecks: "덱", tabAdd: "추가", tabBrowse: "찾기", tabStats: "통계",
   newLbl: "새 카드", learnLbl: "학습", dueLbl: "복습",
-  createDeck: "＋ 새 덱", deckName: "덱 이름 (하위 덱은 수학::미적분 처럼)", rename: "이름 바꾸기", options: "설정", del: "삭제", exportDeck: "내보내기",
+  createDeck: "＋ 새 덱", deckName: "덱 이름 (하위 덱은 스페인어::동사 처럼 :: 로 나눠요)", rename: "이름 바꾸기", options: "설정", del: "삭제", exportDeck: "내보내기",
   delDeckConfirm: (name: string, n: number) => `"${name}" 덱과 카드 ${n}장을 지울까요? 되돌릴 수 없어요.`,
   emptyDecks: "아직 카드가 없어요. 아래 ＋ 추가를 눌러 첫 카드를 만들어 보세요.",
   studyNow: "공부 시작", congrats: "오늘 공부를 모두 마쳤어요! 🎉", congratsSub: "이 덱의 오늘 분량을 다 했어요. 내일 또 만나요.",
@@ -47,6 +47,7 @@ const ko = {
   cloudHelp: "로그인하면 카드가 계정에 저장돼서 사라지지 않고, 아이폰·PC가 자동으로 맞춰져요.", notConfigured: "아직 Firebase 설정값이 없어요. 지금은 이 기기에만 저장돼요.",
   syncNow: "지금 동기화", syncState: { off: "꺼짐", syncing: "동기화 중…", synced: "동기화됨 ✓", offline: "오프라인 · 연결되면 올라가요", error: "동기화 오류 · 다시 시도해요" } as Record<string, string>,
   pendingN: (n: number) => `올릴 항목 ${n}개`, signOutConfirm: "로그아웃할까요? 이 기기의 카드는 그대로 남아 있어요.", cloudBanner: "카드가 사라지지 않게 로그인해 두세요",
+  deckCreated: (n: string) => `"${n}" 덱을 만들었어요. ＋ 추가나 ⚙︎ 파일 가져오기로 카드를 넣어 보세요`,
   keyHint: "스페이스: 정답 · 1~4: 평가 · Z: 되돌리기 · E: 편집",
 };
 
@@ -56,7 +57,7 @@ const en: CardDict = {
   title: "Spanish",
   tabDecks: "Decks", tabAdd: "Add", tabBrowse: "Browse", tabStats: "Stats",
   newLbl: "New", learnLbl: "Learn", dueLbl: "Due",
-  createDeck: "＋ New deck", deckName: "Deck name (use Math::Calculus for subdecks)", rename: "Rename", options: "Options", del: "Delete", exportDeck: "Export",
+  createDeck: "＋ New deck", deckName: "Deck name (use Spanish::Verbs for subdecks)", rename: "Rename", options: "Options", del: "Delete", exportDeck: "Export",
   delDeckConfirm: (name, n) => `Delete deck "${name}" and its ${n} cards? This can't be undone.`,
   emptyDecks: "No cards yet. Tap ＋ Add below to make your first card.",
   studyNow: "Study now", congrats: "Congratulations! You've finished for today 🎉", congratsSub: "This deck is done for now. See you tomorrow.",
@@ -99,6 +100,7 @@ const en: CardDict = {
   cloudHelp: "Sign in to back up your cards to your account and keep iPhone and PC in sync.", notConfigured: "Firebase isn't configured yet. Cards are stored on this device only.",
   syncNow: "Sync now", syncState: { off: "Off", syncing: "Syncing…", synced: "Synced ✓", offline: "Offline · will upload when online", error: "Sync error · retrying" },
   pendingN: (n) => `${n} pending`, signOutConfirm: "Sign out? Cards on this device stay here.", cloudBanner: "Sign in so you never lose your cards",
+  deckCreated: (n) => `Created "${n}". Add cards with ＋ Add or ⚙︎ Import`,
   keyHint: "Space: answer · 1–4: rate · Z: undo · E: edit",
 };
 

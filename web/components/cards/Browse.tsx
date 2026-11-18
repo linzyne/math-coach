@@ -9,7 +9,7 @@ import type { Card, Note } from "@/lib/cards/types";
 import { useCards } from "./store";
 import NoteEditor from "./NoteEditor";
 import CardFace from "./CardFace";
-import { ActionSheet } from "./DeckList";
+import { ActionSheet, NameSheet } from "./DeckList";
 
 const FLAG_COLORS = ["", "#e5484d", "#f08c00", "#30a46c", "#3e63dd"];
 
@@ -22,6 +22,7 @@ export default function Browse({ initialQuery = "" }: { initialQuery?: string })
   const [open, setOpen] = useState<string | null>(null);
   const [editNote, setEditNote] = useState<string | null>(null);
   const [actions, setActions] = useState(false);
+  const [moving, setMoving] = useState(false);
   const now = Date.now();
   const today = dayNumber(now, col.settings.dayStartHour);
 
@@ -102,13 +103,24 @@ export default function Browse({ initialQuery = "" }: { initialQuery?: string })
 
       {actions && (
         <ActionSheet title={t.selected(sel.size)} onClose={() => setActions(false)}>
-          <button onClick={() => { const name = prompt(t.changeDeck, sortedDecks(col)[0]?.name); if (name?.trim()) mutate((c) => moveCards(c, sel, ensureDeck(c, name).id)); done(); }}>📂 {t.changeDeck}</button>
+          <button onClick={() => { setActions(false); setMoving(true); }}>📂 {t.changeDeck}</button>
           <button onClick={() => { mutate((c) => setSuspended(c, sel, true)); done(); }}>⏸ {t.suspend}</button>
           <button onClick={() => { mutate((c) => setSuspended(c, sel, false)); done(); }}>▶︎ {t.unsuspend}</button>
           <button onClick={() => { mutate((c) => { for (const x of c.cards) if (sel.has(x.id)) x.flag = x.flag === 1 ? 0 : 1; }); done(); }}>⚑ {t.flag}</button>
           <button onClick={() => { if (confirm(t.resetConfirm)) mutate((c) => resetCards(c, sel)); done(); }}>↺ {t.reset}</button>
           <button className="danger" onClick={() => { const ns = selNotes(); if (confirm(t.delCardsConfirm(ns.size))) mutate((c) => deleteNotes(c, ns)); done(); }}>🗑 {t.del}</button>
         </ActionSheet>
+      )}
+
+      {moving && (
+        <NameSheet
+          title={t.changeDeck}
+          help={t.deckName}
+          initial=""
+          suggestions={sortedDecks(col).map((d) => d.name)}
+          onSave={(name) => { mutate((c) => moveCards(c, sel, ensureDeck(c, name).id)); setMoving(false); done(); }}
+          onClose={() => setMoving(false)}
+        />
       )}
 
       {openItem && !editNote && (
