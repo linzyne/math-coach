@@ -15,12 +15,12 @@ const env = {
 
 /** 콘솔의 firebaseConfig 값을 여기에 붙여 넣는다 (환경변수가 있으면 그쪽이 우선) */
 const FILE_CONFIG = {
-  apiKey: "",
-  authDomain: "",
-  projectId: "",
-  appId: "",
-  messagingSenderId: "",
-  storageBucket: "",
+  apiKey: "AIzaSyBrrDA9pWtXivkjySl9su9oraSQFcwuEgg",
+  authDomain: "flashcard-838b7.firebaseapp.com",
+  projectId: "flashcard-838b7",
+  appId: "1:453870564537:web:a23a3cf5dde9c307729768",
+  messagingSenderId: "453870564537",
+  storageBucket: "flashcard-838b7.firebasestorage.app",
 };
 
 export const firebaseConfig = env.apiKey && env.projectId ? env : FILE_CONFIG;
