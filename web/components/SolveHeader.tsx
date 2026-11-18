@@ -8,7 +8,7 @@ export default function SolveHeader({ no, statement, kind }: { no: number; state
   const { t } = useLang();
   return (
     <header className={`solve-head ${kind === "free" ? "free" : ""}`}>
-      <Link href="/" className="back">{t.back}</Link>
+      <Link href="/math" className="back">{t.back}</Link>
       <div className="problem">
         <span className="problem-no">{t.problemNo(no)}</span>
         <MathText text={statement} className="problem-text" />

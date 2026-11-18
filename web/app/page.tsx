@@ -1,5 +1,5 @@
-import HomeList from "@/components/HomeList";
+import Hub from "@/components/Hub";
 
 export default function Home() {
-  return <HomeList />;
+  return <Hub />;
 }

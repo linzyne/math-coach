@@ -146,7 +146,7 @@ export default function SolveBoard({ problemId, problem, nextId, nextHref }: Pro
           {nextLink ? (
             <Link href={nextLink} className="primary">{t.next}</Link>
           ) : (
-            <Link href="/" className="primary">{t.toList}</Link>
+            <Link href="/math" className="primary">{t.toList}</Link>
           )}
         </div>
       )}

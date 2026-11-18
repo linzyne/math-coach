@@ -1,7 +1,7 @@
 import type { Lang } from "@/lib/i18n";
 
 const ko = {
-  title: "플래시카드",
+  title: "Spanish",
   tabDecks: "덱", tabAdd: "추가", tabBrowse: "찾기", tabStats: "통계",
   newLbl: "새 카드", learnLbl: "학습", dueLbl: "복습",
   createDeck: "＋ 새 덱", deckName: "덱 이름 (하위 덱은 수학::미적분 처럼)", rename: "이름 바꾸기", options: "설정", del: "삭제", exportDeck: "내보내기",
@@ -42,7 +42,7 @@ const ko = {
   importPaste: "여기에 붙여넣거나 파일을 고르세요", chooseFile: "파일 고르기", importDo: (n: number) => `${n}장 가져오기`, imported: (n: number) => `${n}개 노트를 가져왔어요`, hasTags: "3번째 칸은 태그",
   importType: "자동 (빈칸 감지)", exportAll: "전체 텍스트 내보내기 (.txt)", restored: "복원했어요", badFile: "파일을 읽지 못했어요",
   sampleDeck: "예제 덱 넣기", sampleAdded: "예제 덱을 넣었어요",
-  back2: "← 덱", home: "← Math", close: "닫기", ok: "확인", noCards: "카드가 없어요", remaining: "남음",
+  back2: "← 덱", home: "← 홈", close: "닫기", ok: "확인", noCards: "카드가 없어요", remaining: "남음",
   account: "계정 · 동기화", signInGoogle: "구글로 로그인", signOut: "로그아웃", signedInAs: (e: string) => `${e} 로 로그인됨`, signInFail: "로그인하지 못했어요. 다시 시도해 주세요.",
   cloudHelp: "로그인하면 카드가 계정에 저장돼서 사라지지 않고, 아이폰·PC가 자동으로 맞춰져요.", notConfigured: "아직 Firebase 설정값이 없어요. 지금은 이 기기에만 저장돼요.",
   syncNow: "지금 동기화", syncState: { off: "꺼짐", syncing: "동기화 중…", synced: "동기화됨 ✓", offline: "오프라인 · 연결되면 올라가요", error: "동기화 오류 · 다시 시도해요" } as Record<string, string>,
@@ -53,7 +53,7 @@ const ko = {
 export type CardDict = typeof ko;
 
 const en: CardDict = {
-  title: "Flashcards",
+  title: "Spanish",
   tabDecks: "Decks", tabAdd: "Add", tabBrowse: "Browse", tabStats: "Stats",
   newLbl: "New", learnLbl: "Learn", dueLbl: "Due",
   createDeck: "＋ New deck", deckName: "Deck name (use Math::Calculus for subdecks)", rename: "Rename", options: "Options", del: "Delete", exportDeck: "Export",
@@ -94,7 +94,7 @@ const en: CardDict = {
   importPaste: "Paste here or choose a file", chooseFile: "Choose file", importDo: (n) => `Import ${n}`, imported: (n) => `Imported ${n} note${n === 1 ? "" : "s"}`, hasTags: "3rd column is tags",
   importType: "Auto (detect cloze)", exportAll: "Export all as text (.txt)", restored: "Restored", badFile: "Couldn't read that file",
   sampleDeck: "Add sample deck", sampleAdded: "Sample deck added",
-  back2: "← Decks", home: "← Math", close: "Close", ok: "OK", noCards: "No cards", remaining: "left",
+  back2: "← Decks", home: "← Home", close: "Close", ok: "OK", noCards: "No cards", remaining: "left",
   account: "Account & sync", signInGoogle: "Sign in with Google", signOut: "Sign out", signedInAs: (e) => `Signed in as ${e}`, signInFail: "Couldn't sign in. Please try again.",
   cloudHelp: "Sign in to back up your cards to your account and keep iPhone and PC in sync.", notConfigured: "Firebase isn't configured yet. Cards are stored on this device only.",
   syncNow: "Sync now", syncState: { off: "Off", syncing: "Syncing…", synced: "Synced ✓", offline: "Offline · will upload when online", error: "Sync error · retrying" },

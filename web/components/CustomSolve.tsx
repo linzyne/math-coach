@@ -22,7 +22,7 @@ export default function CustomSolve() {
     return (
       <main className="home">
         <p>404</p>
-        <Link href="/" className="primary">{t.toList}</Link>
+        <Link href="/math" className="primary">{t.toList}</Link>
       </main>
     );
   const problem = toProblem(custom);

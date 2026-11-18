@@ -23,15 +23,13 @@ export default function HomeList() {
 
   return (
     <main className="home">
+      <Link href="/" className="hub-back">{t.home}</Link>
       <div className="home-top">
         <h1>{t.appTitle}</h1>
         <LangToggle />
       </div>
       <p className="sub">{t.appSub}</p>
-      <div className="home-actions">
-        <button className="primary add-btn" onClick={() => setAdding(true)}>{t.addProblem}</button>
-        <Link href="/cards" className="ghost add-btn cards-link">🗂️ {t.flashcards}</Link>
-      </div>
+      <button className="primary add-btn" onClick={() => setAdding(true)}>{t.addProblem}</button>
 
       {custom.length > 0 && (
         <>
