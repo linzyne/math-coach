@@ -4,6 +4,7 @@ import { useMemo, useRef, useState } from "react";
 import type { NoteType } from "@/lib/cards/types";
 import { download, exportJson, exportTsv, importRows, parseBackup, parseDelimited } from "@/lib/cards/io";
 import { sortedDecks } from "@/lib/cards/collection";
+import { decodeText, dropHeader, isXlsx, readXlsx } from "@/lib/cards/xlsx";
 import { LangToggle } from "@/lib/i18n";
 import { useCards } from "./store";
 
@@ -34,12 +35,14 @@ export function AccountSection() {
 export default function DataPanel({ onClose }: { onClose: () => void }) {
   const { col, mutate, replace, t, toast, account } = useCards();
   const [text, setText] = useState("");
+  const [sheetRows, setSheetRows] = useState<string[][] | null>(null); // 엑셀에서 읽은 표
+  const [fileName, setFileName] = useState<string | null>(null);
   const [deckName, setDeckName] = useState(col.decks.find((d) => d.id === col.settings.lastDeckId)?.name ?? sortedDecks(col)[0].name);
   const [type, setType] = useState<NoteType | "auto">("auto");
   const [hasTags, setHasTags] = useState(true);
   const fileRef = useRef<HTMLInputElement>(null);
   const backupRef = useRef<HTMLInputElement>(null);
-  const rows = useMemo(() => (text.trim() ? parseDelimited(text) : []), [text]);
+  const rows = useMemo(() => dropHeader(sheetRows ?? (text.trim() ? parseDelimited(text) : [])), [text, sheetRows]);
   const s = col.settings;
 
   const setSetting = (patch: Partial<typeof s>) => mutate((c) => { c.settings = { ...c.settings, ...patch }; });
@@ -86,16 +89,31 @@ export default function DataPanel({ onClose }: { onClose: () => void }) {
 
           <h3>{t.importText}</h3>
           <p className="fc-help">{t.importHelp}</p>
-          <textarea className="fc-import" rows={5} placeholder={t.importPaste} value={text} onChange={(e) => setText(e.target.value)} />
+          <textarea className="fc-import" rows={5} placeholder={t.importPaste} value={text} onChange={(e) => { setText(e.target.value); setSheetRows(null); setFileName(null); }} />
           <div className="fc-row2">
             <button className="ghost" onClick={() => fileRef.current?.click()}>{t.chooseFile}</button>
             <input ref={fileRef} type="file" hidden onChange={async (e) => {
               const f = e.target.files?.[0];
               e.target.value = "";
-              if (f) setText(await f.text());
+              if (!f) return;
+              const bytes = new Uint8Array(await f.arrayBuffer());
+              if (isXlsx(bytes)) {
+                try {
+                  setSheetRows(readXlsx(bytes));
+                  setFileName(f.name);
+                  setText("");
+                } catch { toast(t.badFile); }
+              } else if (/\.(xls|numbers|docx|pdf|hwp)$/i.test(f.name)) {
+                toast(t.badFile);
+              } else {
+                setSheetRows(null);
+                setFileName(null);
+                setText(decodeText(bytes));
+              }
             }} />
             <label className="fc-field inline"><input type="checkbox" checked={hasTags} onChange={(e) => setHasTags(e.target.checked)} /> {t.hasTags}</label>
           </div>
+          {fileName && <p className="fc-help">📄 {fileName}</p>}
           {rows.length > 0 && (
             <>
               <div className="fc-row2">
@@ -120,6 +138,8 @@ export default function DataPanel({ onClose }: { onClose: () => void }) {
                 mutate((c) => { n = importRows(c, rows, deckName, type, hasTags); });
                 toast(t.imported(n));
                 setText("");
+                setSheetRows(null);
+                setFileName(null);
               }}>{t.importDo(rows.length)}</button>
             </>
           )}
