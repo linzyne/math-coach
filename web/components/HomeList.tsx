@@ -28,7 +28,10 @@ export default function HomeList() {
         <LangToggle />
       </div>
       <p className="sub">{t.appSub}</p>
-      <button className="primary add-btn" onClick={() => setAdding(true)}>{t.addProblem}</button>
+      <div className="home-actions">
+        <button className="primary add-btn" onClick={() => setAdding(true)}>{t.addProblem}</button>
+        <Link href="/cards" className="ghost add-btn cards-link">🗂️ {t.flashcards}</Link>
+      </div>
 
       {custom.length > 0 && (
         <>
