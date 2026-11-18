@@ -5,8 +5,8 @@ import type { Collection } from "@/lib/cards/types";
 import { loadCollection, saveCollection } from "@/lib/cards/collection";
 import { cardStrings, type CardDict } from "@/lib/cards/strings";
 import { useLang, type Lang } from "@/lib/i18n";
-import { firebaseEnabled, getFirebase, signInWithGoogle, signOutFirebase, watchUser } from "@/lib/cards/firebase";
 import { Syncer, type SyncStatus } from "@/lib/cards/sync";
+import { useAccount } from "@/lib/account";
 
 export interface Account {
   enabled: boolean; // Firebase 설정이 들어 있는지
@@ -48,8 +48,7 @@ export function CardsProvider({ children }: { children: React.ReactNode }) {
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pushTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const syncer = useRef<Syncer | null>(null);
-  const [email, setEmail] = useState<string | null>(null);
-  const [ready, setReady] = useState(!firebaseEnabled);
+  const acct = useAccount();
   const [status, setStatus] = useState<SyncStatus>("off");
   const [pending, setPending] = useState(0);
 
@@ -73,31 +72,22 @@ export function CardsProvider({ children }: { children: React.ReactNode }) {
     pushTimer.current = setTimeout(() => syncer.current?.push(), ms);
   }, []);
 
-  // 로그인 상태가 바뀌면 동기화 시작/중지
+  // 로그인돼 있으면 카드 동기화 시작 (로그인은 첫 화면에서)
+  const loaded = version > 0;
   useEffect(() => {
-    if (!firebaseEnabled || version === 0) return;
-    let off: (() => void) | undefined;
-    let alive = true;
-    watchUser(async (user) => {
-      syncer.current?.stop();
-      syncer.current = null;
-      setEmail(user?.email ?? null);
-      setReady(true);
-      if (!user) { setStatus("off"); return; }
-      const { db } = await getFirebase();
-      if (!alive) return;
-      const s = new Syncer(
-        db,
-        user.uid,
-        () => colRef.current!,
-        () => { setVersion((v) => v + 1); saveSoon(); },
-        (st, n) => { setStatus(st); setPending(n); },
-      );
-      syncer.current = s;
-      await s.start();
-    }).then((u) => { off = u; }).catch((e) => { console.warn(e); setReady(true); setStatus("error"); });
-    return () => { alive = false; off?.(); syncer.current?.stop(); syncer.current = null; };
-  }, [version === 0]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (!loaded || !acct.user || !acct.db) { setStatus("off"); return; }
+    const s = new Syncer(
+      acct.db,
+      acct.user.uid,
+      () => colRef.current!,
+      () => { setVersion((v) => v + 1); saveSoon(); },
+      (st, n) => { setStatus(st); setPending(n); },
+    );
+    syncer.current = s;
+    acct.beforeSignOut.current = () => s.push();
+    void s.start();
+    return () => { s.stop(); if (syncer.current === s) syncer.current = null; acct.beforeSignOut.current = null; };
+  }, [loaded, acct.user?.uid, acct.db]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 앱을 닫거나 백그라운드로 갈 때 바로 저장·업로드
   useEffect(() => {
@@ -138,23 +128,15 @@ export function CardsProvider({ children }: { children: React.ReactNode }) {
   }, [msg]);
 
   const account: Account = {
-    enabled: firebaseEnabled,
-    ready,
-    email,
+    enabled: acct.enabled,
+    ready: acct.ready,
+    email: acct.user ? acct.user.email ?? acct.user.name ?? "" : null,
     status,
     pending,
     signIn: async () => {
-      try {
-        await signInWithGoogle();
-      } catch (e) {
-        console.warn(e);
-        toast(t.signInFail);
-      }
+      if (!(await acct.signIn())) toast(t.signInFail);
     },
-    signOut: async () => {
-      await syncer.current?.push();
-      await signOutFirebase();
-    },
+    signOut: acct.signOut,
     syncNow: () => syncer.current?.push(),
   };
 

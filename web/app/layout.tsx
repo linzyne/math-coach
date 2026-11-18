@@ -4,6 +4,7 @@ import "./globals.css";
 import SWRegister from "@/components/SWRegister";
 import ErrorReporter from "@/components/ErrorReporter";
 import { LangProvider } from "@/lib/i18n";
+import { AccountProvider } from "@/lib/account";
 
 export const metadata: Metadata = {
   title: "Math Coach",
@@ -26,7 +27,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en">
       <body>
-        <LangProvider>{children}</LangProvider>
+        <LangProvider><AccountProvider>{children}</AccountProvider></LangProvider>
         <SWRegister />
         <ErrorReporter />
       </body>

@@ -46,13 +46,29 @@ export function getFirebase() {
     } catch {
       db = getFirestore(app);
     }
+    // 테스트용: localStorage에 fb-emulator 가 있으면 로컬 에뮬레이터에 연결
+    if (useEmulator()) {
+      const [{ connectAuthEmulator }, { connectFirestoreEmulator }] = await Promise.all([import("firebase/auth"), import("firebase/firestore")]);
+      try { connectAuthEmulator(auth, "http://127.0.0.1:9099", { disableWarnings: true }); } catch {}
+      try { connectFirestoreEmulator(db, "127.0.0.1", 8080); } catch {}
+    }
     return { app, auth, db };
   })();
   return cached;
 }
 
+function useEmulator(): string | null {
+  try { return localStorage.getItem("fb-emulator"); } catch { return null; }
+}
+
 export async function signInWithGoogle(): Promise<void> {
   const { auth } = await getFirebase();
+  const emu = useEmulator();
+  if (emu) {
+    const { GoogleAuthProvider, signInWithCredential } = await import("firebase/auth");
+    await signInWithCredential(auth, GoogleAuthProvider.credential(JSON.stringify({ sub: emu, email: emu + "@test.dev", email_verified: true })));
+    return;
+  }
   const { GoogleAuthProvider, signInWithPopup, signInWithRedirect } = await import("firebase/auth");
   const provider = new GoogleAuthProvider();
   provider.setCustomParameters({ prompt: "select_account" });

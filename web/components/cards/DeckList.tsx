@@ -58,9 +58,7 @@ export default function DeckList({ onStudy }: { onStudy: (deckId: string) => voi
           <button className="fc-iconbtn" onClick={() => setData(true)} aria-label={t.dataTitle}>⚙︎</button>
         </div>
       </header>
-      {account.enabled && account.ready && !account.email && (
-        <button className="fc-banner" onClick={() => void account.signIn()}>☁︎ {t.cloudBanner} ›</button>
-      )}
+
 
       {empty && (
         <div className="fc-empty">

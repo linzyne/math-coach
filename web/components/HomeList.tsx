@@ -6,6 +6,7 @@ import MathText from "./MathText";
 import AddProblem from "./AddProblem";
 import { PROBLEMS, UNITS } from "@/lib/problems";
 import { LangToggle, useLang } from "@/lib/i18n";
+import { STORAGE_EVENT } from "@/lib/kvSync";
 import { loadCustom, removeCustom, toProblem, type CustomProblem } from "@/lib/customProblems";
 
 export default function HomeList() {
@@ -14,7 +15,12 @@ export default function HomeList() {
   const [adding, setAdding] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
 
-  useEffect(() => setCustom(loadCustom()), []);
+  useEffect(() => {
+    setCustom(loadCustom());
+    const reload = () => setCustom(loadCustom());
+    window.addEventListener(STORAGE_EVENT, reload);
+    return () => window.removeEventListener(STORAGE_EVENT, reload);
+  }, []);
   useEffect(() => {
     if (!toast) return;
     const id = setTimeout(() => setToast(null), 2500);

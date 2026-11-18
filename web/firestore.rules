@@ -4,7 +4,7 @@ service cloud.firestore {
   match /databases/{database}/documents {
     match /users/{uid}/{kind}/{docId} {
       allow read, write: if request.auth != null && request.auth.uid == uid
-        && kind in ['decks', 'notes', 'cards', 'revlog', 'media', 'meta'];
+        && kind in ['decks', 'notes', 'cards', 'revlog', 'media', 'meta', 'kv'];
     }
   }
 }
