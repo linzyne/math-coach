@@ -40,6 +40,8 @@ export function AccountProvider({ children }: { children: React.ReactNode }) {
   const beforeSignOut = useRef<(() => Promise<void>) | null>(null);
 
   useEffect(() => {
+    // 사파리가 저장 공간(로그인 정보·기록)을 마음대로 비우지 않도록 요청
+    navigator.storage?.persist?.().catch(() => {});
     if (!firebaseEnabled) return;
     let off: (() => void) | undefined;
     let alive = true;

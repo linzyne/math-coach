@@ -32,14 +32,23 @@ let cached: Promise<{ app: FirebaseApp; auth: Auth; db: Firestore }> | null = nu
 export function getFirebase() {
   if (!firebaseEnabled) throw new Error("firebase not configured");
   cached ??= (async () => {
-    const [{ initializeApp, getApps }, { getAuth }, { initializeFirestore, getFirestore }] = await Promise.all([
+    const [{ initializeApp, getApps }, authMod, { initializeFirestore, getFirestore }] = await Promise.all([
       import("firebase/app"),
       import("firebase/auth"),
       import("firebase/firestore"),
     ]);
     const existing = getApps()[0];
     const app = existing ?? initializeApp(firebaseConfig);
-    const auth = getAuth(app);
+    // 로그인을 기기에 계속 저장 (브라우저를 닫거나 폰을 껐다 켜도 유지)
+    let auth: Auth;
+    try {
+      auth = authMod.initializeAuth(app, {
+        persistence: [authMod.indexedDBLocalPersistence, authMod.browserLocalPersistence],
+        popupRedirectResolver: authMod.browserPopupRedirectResolver,
+      });
+    } catch {
+      auth = authMod.getAuth(app);
+    }
     let db: Firestore;
     try {
       db = initializeFirestore(app, { ignoreUndefinedProperties: true });
