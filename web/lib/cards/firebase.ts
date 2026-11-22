@@ -71,7 +71,6 @@ export async function signInWithGoogle(): Promise<void> {
   }
   const { GoogleAuthProvider, signInWithPopup, signInWithRedirect } = await import("firebase/auth");
   const provider = new GoogleAuthProvider();
-  provider.setCustomParameters({ prompt: "select_account" });
   try {
     await signInWithPopup(auth, provider);
   } catch (e) {
