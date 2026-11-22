@@ -147,6 +147,24 @@ export function updateNote(col: Collection, noteId: string, patch: Partial<Pick<
   for (const ord of want) if (!haveOrds.has(ord)) col.cards.push(makeCard(col, note, ord));
 }
 
+/** 노트 종류 바꾸기 (기본 ↔ 기본+뒤집기). 새로 생긴 뒤집기 카드는 원래 카드 순서를 따라 새 카드로 */
+export function setNoteType(col: Collection, noteIds: Set<string>, type: "basic" | "reversed"): number {
+  let changed = 0;
+  for (const n of col.notes) {
+    if (!noteIds.has(n.id) || n.type === "cloze" || n.type === type) continue;
+    const before = new Set(col.cards.filter((c) => c.noteId === n.id).map((c) => c.id));
+    updateNote(col, n.id, { type });
+    const sib = col.cards.find((c) => c.noteId === n.id && c.ord === 0);
+    for (const c of col.cards) {
+      if (c.noteId !== n.id || before.has(c.id)) continue;
+      c.deckId = sib?.deckId ?? c.deckId;
+      c.due = sib && sib.state === "new" ? sib.due : col.nextNewPos++;
+    }
+    changed++;
+  }
+  return changed;
+}
+
 export function deleteNotes(col: Collection, noteIds: Set<string>) {
   const cardIds = new Set(col.cards.filter((c) => noteIds.has(c.noteId)).map((c) => c.id));
   col.notes = col.notes.filter((n) => !noteIds.has(n.id));

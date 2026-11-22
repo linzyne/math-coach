@@ -265,3 +265,5 @@
 .fc-fixed-deck { min-height: 46px; display: flex; align-items: center; padding: 0 12px; border-radius: 12px; background: var(--fc-soft); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .fc-deck-name small.empty { color: var(--fc-accent); }
 .fc-help.fc-file-name { margin: 8px 2px 12px; }
+.fc-help.fc-dir-help { margin: -8px 4px 4px; }
+.fc-opt > b { font-variant-numeric: tabular-nums; }

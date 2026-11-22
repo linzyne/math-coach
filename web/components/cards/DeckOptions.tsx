@@ -3,9 +3,22 @@
 import { useState } from "react";
 import type { Deck, DeckConfig } from "@/lib/cards/types";
 import { useCards } from "./store";
+import { deckFamily } from "@/lib/cards/scheduler";
+import { setNoteType } from "@/lib/cards/collection";
 
 export default function DeckOptions({ deck, onClose }: { deck: Deck; onClose: () => void }) {
-  const { mutate, t, toast } = useCards();
+  const { col, mutate, t, toast } = useCards();
+  const fam = deckFamily(col, deck.id);
+  const deckNotes = col.notes.filter((n) => col.cards.some((c) => c.noteId === n.id && fam.has(c.deckId)));
+  const nBasic = deckNotes.filter((n) => n.type === "basic").length;
+  const nRev = deckNotes.filter((n) => n.type === "reversed").length;
+  const changeType = (type: "basic" | "reversed") => {
+    const ids = new Set(deckNotes.map((n) => n.id));
+    if (type === "basic" && !confirm(t.dirToBasicConfirm(nRev))) return;
+    let n = 0;
+    mutate((c) => { n = setNoteType(c, ids, type); });
+    toast(type === "reversed" ? t.dirToRevDone(n) : t.dirToBasicDone(n));
+  };
   const [c, setC] = useState<DeckConfig>({ ...deck.config });
   const [steps, setSteps] = useState(deck.config.learningSteps.join(" "));
   const [relearn, setRelearn] = useState(deck.config.relearningSteps.join(" "));
@@ -57,6 +70,19 @@ export default function DeckOptions({ deck, onClose }: { deck: Deck; onClose: ()
           <button className="link strong" onClick={save}>{t.save}</button>
         </header>
         <div className="fc-sheet-body fc-opts">
+          {(nBasic > 0 || nRev > 0) && (
+            <>
+              <h3>{t.dirTitle}</h3>
+              <section>
+                <div className="fc-opt"><span>{t.dirBasic}</span><b>{nBasic}</b></div>
+                <div className="fc-opt"><span>{t.dirRev}</span><b>{nRev}</b></div>
+                {nBasic > 0 && <button className="fc-opt-btn" onClick={() => changeType("reversed")}>⇄ {t.dirToRev(nBasic)}</button>}
+                {nRev > 0 && <button className="fc-opt-btn danger" onClick={() => changeType("basic")}>→ {t.dirToBasic(nRev)}</button>}
+              </section>
+              <p className="fc-help fc-dir-help">{t.dirHelp}</p>
+              <h3>{t.optStudy}</h3>
+            </>
+          )}
           <section>
             {num("newPerDay", t.optNewDay)}
             {num("reviewsPerDay", t.optRevDay)}
